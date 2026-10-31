@@ -3,3 +3,5 @@ build/
 *.exe
 # 大きいカタログは scripts/ から取得する
 data/raw/
+dist/
+__pycache__/

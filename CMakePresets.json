@@ -8,6 +8,7 @@
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "C:/msys64/mingw64/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/msys64/mingw64/bin/g++.exe"
       }
     },
