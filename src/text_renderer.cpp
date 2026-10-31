@@ -152,7 +152,7 @@ float TextRenderer::measure(const std::string& utf8, float sizePx) {
 }
 
 void TextRenderer::add(Anchor anchor, const astro::Vec3& pos, const std::string& utf8, float sizePx,
-                       const float rgba[4], Align align, float offsetXPx, float offsetYPx) {
+                       const float rgba[4], Align align, float offsetXPx, float offsetYPx, Layer layer) {
     if (!ok()) return;
     const auto cps = decodeUtf8(utf8);
     float width = 0;
@@ -178,7 +178,7 @@ void TextRenderer::add(Anchor anchor, const astro::Vec3& pos, const std::string&
         const float corners[4][4] = {{x0, y0, g.u0, g.v0}, {x1, y0, g.u1, g.v0}, {x0, y1, g.u0, g.v1},
                                      {x1, y1, g.u1, g.v1}};
         for (int k : {0, 1, 2, 2, 1, 3}) {
-            vertices_.push_back({{float(pos.x), float(pos.y), float(pos.z)},
+            vertices_[layer].push_back({{float(pos.x), float(pos.y), float(pos.z)},
                                  float(anchor),
                                  {corners[k][0], corners[k][1]},
                                  {corners[k][2], corners[k][3]},
@@ -188,16 +188,17 @@ void TextRenderer::add(Anchor anchor, const astro::Vec3& pos, const std::string&
     }
 }
 
-void TextRenderer::flush(int width, int height) {
+void TextRenderer::flush(int width, int height, Layer layer) {
     if (!ok()) return;
     if (needsBuild_) build();
-    if (vertices_.empty()) return;
-    const size_t bytes = vertices_.size() * sizeof(Vertex);
+    auto& vertices = vertices_[layer];
+    if (vertices.empty()) return;
+    const size_t bytes = vertices.size() * sizeof(Vertex);
     if (bytes > vboCapacity_) {
         vboCapacity_ = bytes * 2;
         glNamedBufferData(vbo_, static_cast<GLsizeiptr>(vboCapacity_), nullptr, GL_DYNAMIC_DRAW);
     }
-    glNamedBufferSubData(vbo_, 0, static_cast<GLsizeiptr>(bytes), vertices_.data());
+    glNamedBufferSubData(vbo_, 0, static_cast<GLsizeiptr>(bytes), vertices.data());
 
     const float viewport[2] = {float(width), float(height)};
     glProgramUniform2fv(program_, glGetUniformLocation(program_, "u_viewport"), 1, viewport);
@@ -207,7 +208,7 @@ void TextRenderer::flush(int width, int height) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(program_);
     glBindVertexArray(vao_);
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices_.size()));
+    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
     glDisable(GL_BLEND);
-    vertices_.clear();
+    vertices.clear();
 }

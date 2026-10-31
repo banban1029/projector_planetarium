@@ -14,6 +14,8 @@ public:
     // 文字の基準点の種類
     enum Anchor { SkyJ2000 = 0, SkyHorizon = 1, Screen = 2 };
     enum Align { Left, Center, Right };
+    // Sky: 空と一緒に描く（フェード・にじみ・水鏡がかかる） / Overlay: 仕上げの後に重ねる（画面表示・字幕・クレジット）
+    enum Layer { Sky = 0, Overlay = 1 };
 
     // fontPath が空なら Windows の日本語フォントを順に探す。見つからなければ ok() == false
     TextRenderer(const std::string& root, const std::string& fontPath);
@@ -30,11 +32,11 @@ public:
     // 1 フレーム分の文字を積む。anchor は Sky* なら方向ベクトル、Screen なら NDC (x, y, 0)。
     // offsetPx は基準点からのずらし [px]（y 上向き）
     void add(Anchor anchor, const astro::Vec3& pos, const std::string& utf8, float sizePx, const float rgba[4],
-             Align align = Center, float offsetXPx = 0.0f, float offsetYPx = 0.0f);
+             Align align = Center, float offsetXPx = 0.0f, float offsetYPx = 0.0f, Layer layer = Sky);
     // 文字列の幅 [px]（未登録の文字は次の flush() で登録される）
     float measure(const std::string& utf8, float sizePx);
-    // 積んだ文字を描いて空にする。投影の uniform は呼び出し側で program() に設定しておく
-    void flush(int width, int height);
+    // layer に積んだ文字を描いて空にする。投影の uniform は呼び出し側で program() に設定しておく
+    void flush(int width, int height, Layer layer = Sky);
 
     GLuint program() const { return program_; }
 
@@ -56,7 +58,7 @@ private:
     std::vector<unsigned char> fontData_;
     std::vector<int> codepoints_;
     std::unordered_map<int, Glyph> glyphs_;
-    std::vector<Vertex> vertices_;
+    std::vector<Vertex> vertices_[2];
     bool loaded_ = false;
     bool needsBuild_ = true;
     GLuint program_ = 0, atlas_ = 0, vao_ = 0, vbo_ = 0;

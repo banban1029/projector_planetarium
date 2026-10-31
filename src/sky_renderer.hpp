@@ -29,9 +29,12 @@ struct SkyState {
 struct Overlays {
     bool grid = false;            // 高度・方位グリッド
     bool compass = false;         // 方位の文字 北/東/南/西
-    bool constellations = false;  // 星座線
-    bool labels = false;          // 星・惑星・星座の名前
-    bool info = false;            // 日時などの画面表示
+    bool constellations = false;      // 星座線
+    bool constellationNames = false;  // 星座名
+    bool labels = false;              // 星・惑星・月の名前
+    bool info = false;                // 日時などの画面表示
+    bool credits = false;             // クレジット（データの出典）
+    bool testPattern = false;         // 投影の調整用テストパターン
 };
 
 struct FrameInput {
@@ -61,6 +64,8 @@ public:
     // 今の画面から次の画面へ durationSec 秒でフェードする（モード・場所・季節の切り替え時）
     void startTransition(float nowSec, float durationSec);
     void render(const FrameInput& in);
+    // 最後に画面へ出した画像（操作パネルのプレビュー用。共有コンテキストから使える）
+    GLuint outputTexture() const { return outputTex_; }
 
 private:
     void ensureTargets(int width, int height);
@@ -75,6 +80,8 @@ private:
     GLsizei starCount_ = 0;
     // HDR の描画先（scene）、フェード前の画面（fade）、ブルーム用の縮小バッファ 2 枚
     GLuint sceneFbo_ = 0, sceneTex_ = 0, fadeTex_ = 0;
+    GLuint outputFbo_ = 0, outputTex_ = 0;  // 仕上げた画像（8bit）。ここから画面へ転送する
+    GLuint testPatternProgram_ = 0;
     GLuint bloomFbo_[2] = {0, 0}, bloomTex_[2] = {0, 0};
     int targetW_ = 0, targetH_ = 0;
     bool hasFrame_ = false;

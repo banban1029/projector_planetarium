@@ -131,6 +131,7 @@ SkyRenderer::SkyRenderer(const std::string& root, const std::vector<StarVertex>&
     bodyProgram_ = buildProgram(dir + "body.vert", dir + "body.frag", common);
     bloomProgram_ = buildProgram(dir + "fullscreen.vert", dir + "bloom.frag");
     postProgram_ = buildProgram(dir + "fullscreen.vert", dir + "post.frag", common);
+    testPatternProgram_ = buildProgram(dir + "fullscreen.vert", dir + "testpattern.frag", common);
     text_ = std::make_unique<TextRenderer>(root, render.font);
     lines_ = std::make_unique<LineRenderer>(root);
 
@@ -162,18 +163,25 @@ SkyRenderer::SkyRenderer(const std::string& root, const std::vector<StarVertex>&
 }
 
 SkyRenderer::~SkyRenderer() {
-    for (GLuint p : {starProgram_, skyProgram_, bodyProgram_, bloomProgram_, postProgram_}) glDeleteProgram(p);
+    for (GLuint p : {starProgram_, skyProgram_, bodyProgram_, bloomProgram_, postProgram_, testPatternProgram_}) {
+        glDeleteProgram(p);
+    }
     for (GLuint v : {starVao_, planetVao_, bodyVao_, emptyVao_}) glDeleteVertexArrays(1, &v);
     for (GLuint b : {starVbo_, planetVbo_, bodyVbo_}) glDeleteBuffers(1, &b);
-    for (GLuint f : {sceneFbo_, bloomFbo_[0], bloomFbo_[1]}) glDeleteFramebuffers(1, &f);
-    for (GLuint t : {sceneTex_, fadeTex_, bloomTex_[0], bloomTex_[1]}) glDeleteTextures(1, &t);
+    for (GLuint f : {sceneFbo_, outputFbo_, bloomFbo_[0], bloomFbo_[1]}) glDeleteFramebuffers(1, &f);
+    for (GLuint t : {sceneTex_, fadeTex_, outputTex_, bloomTex_[0], bloomTex_[1]}) glDeleteTextures(1, &t);
 }
 
 void SkyRenderer::ensureTargets(int width, int height) {
     if (width == targetW_ && height == targetH_) return;
-    for (GLuint f : {sceneFbo_, bloomFbo_[0], bloomFbo_[1]}) glDeleteFramebuffers(1, &f);
-    for (GLuint t : {sceneTex_, fadeTex_, bloomTex_[0], bloomTex_[1]}) glDeleteTextures(1, &t);
+    for (GLuint f : {sceneFbo_, outputFbo_, bloomFbo_[0], bloomFbo_[1]}) glDeleteFramebuffers(1, &f);
+    for (GLuint t : {sceneTex_, fadeTex_, outputTex_, bloomTex_[0], bloomTex_[1]}) glDeleteTextures(1, &t);
     sceneTex_ = makeTexture(width, height);
+    glCreateTextures(GL_TEXTURE_2D, 1, &outputTex_);
+    glTextureStorage2D(outputTex_, 1, GL_RGBA8, width, height);
+    glTextureParameteri(outputTex_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(outputTex_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    outputFbo_ = makeFbo(outputTex_);
     fadeTex_ = makeTexture(width, height);
     sceneFbo_ = makeFbo(sceneTex_);
     for (int i = 0; i < 2; ++i) {
@@ -340,7 +348,7 @@ void SkyRenderer::render(const FrameInput& in) {
         const GLuint tp = text_->program();
         setProjectionUniforms(tp, width, height, view, landscape);
         setUniformMat3(tp, "u_eqToHor", sky.j2000ToHorizon.m);
-        text_->flush(width, height);
+        text_->flush(width, height, TextRenderer::Sky);
     }
 
     // 7) 光のにじみ: 明るい部分を半分の解像度に取り出し、横・縦のぼかしを 2 回ずつ
@@ -367,8 +375,8 @@ void SkyRenderer::render(const FrameInput& in) {
         drawFullscreen(bloomProgram_);
     }
 
-    // 8) 出力（水鏡・にじみ・フェード・露出・ガンマ）
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // 8) 仕上げ（水鏡・にじみ・フェード・露出・ガンマ）→ 出力テクスチャ
+    glBindFramebuffer(GL_FRAMEBUFFER, outputFbo_);
     glViewport(0, 0, width, height);
     setProjectionUniforms(postProgram_, width, height, view, landscape);
     const float fadeT =
@@ -380,12 +388,28 @@ void SkyRenderer::render(const FrameInput& in) {
     setUniform(postProgram_, "u_fadeT", fadeT);
     setUniform(postProgram_, "u_mirror", st.mirror ? 1 : 0);
     setUniform(postProgram_, "u_time", in.timeSec);
-    setUniform(postProgram_, "u_exposure", static_cast<float>(render_.exposure));
+    // クレジット表示中は星空を暗くして文字を読みやすくする
+    setUniform(postProgram_, "u_exposure",
+               static_cast<float>(render_.exposure) * (in.overlays.credits ? 0.25f : 1.0f));
     setUniform(postProgram_, "u_gamma", static_cast<float>(render_.gamma));
     setUniform(postProgram_, "u_dither", render_.dither ? 1 : 0);
     glBindTextureUnit(0, sceneTex_);
     glBindTextureUnit(1, bloomTex_[0]);
     glBindTextureUnit(2, fadeTex_);
     drawFullscreen(postProgram_);
+
+    // 9) 仕上げの後に重ねる文字（画面表示・通知・字幕・クレジット）
+    if (text_->ok()) text_->flush(width, height, TextRenderer::Overlay);
+
+    // 10) テストパターン（投影の調整用。ガンマなどをかけず、出力の値をそのまま出す）
+    if (in.overlays.testPattern) {
+        setProjectionUniforms(testPatternProgram_, width, height, view, 0);
+        setUniform2(testPatternProgram_, "u_viewport", float(width), float(height));
+        drawFullscreen(testPatternProgram_);
+    }
+
+    // 11) 画面（プロジェクタ）へ
+    glBlitNamedFramebuffer(outputFbo_, 0, 0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     hasFrame_ = true;
 }
