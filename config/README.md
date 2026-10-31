@@ -13,7 +13,8 @@
 | `output` | `debug`（PC 画面にウィンドウ）/ `projector`（プロジェクタにフルスクリーン） |
 | `projector` | プロジェクタの解像度（ML1050ST+ は 1280×800）、出力先モニタ番号、左右・上下反転、垂直同期 |
 | `projection` | 投影方式（`fisheye` 天井向け / `perspective` 壁向け）、画角、視線の方向、回転 |
-| `observer` | 観測地の緯度・経度・標高・タイムゾーン（既定は大阪大学吹田キャンパス） |
+| `location` | 起動時の観測地の `id` |
+| `locations` | 観測地の一覧。`id`・名前・緯度・経度・標高・タイムゾーン・`limiting_magnitude`（その場所の夜空で見える最暗等級＝光害の程度）。`L` キーで順に切り替える |
 | `time` | 起動時の日時（`"now"` または `"2026-12-15 22:00"`）、時間倍率とその段階 |
 | `seasons` | 季節プリセット（名前・月日・時刻）。並び順 = `S` キーで巡回する順 |
 | `season_tour` | 季節の自動巡回（`T` キー）の ON/OFF と間隔 |
@@ -34,6 +35,25 @@ cp config/projector.yaml config/ceiling.yaml     # 天井投影用など
 ```powershell
 .\run.ps1 config\ceiling.yaml                      # PowerShell
 ```
+
+## 観測地を追加する
+
+`locations` に項目を足す。`id` は `location:` や `--location` で使う名前（半角英数字）。
+
+```yaml
+locations:
+  - id: osaka            # 大阪大学 吹田キャンパス（街明かりあり, 4.0 等まで）
+  - id: achi             # 長野県 阿智村（日本一の星空, 6.5 等まで）
+  - id: tokyo            # ← 追加例
+    name: "東京"
+    latitude_deg: 35.68
+    longitude_deg: 139.77
+    elevation_m: 40
+    timezone_hours: 9
+    limiting_magnitude: 3.0
+```
+
+`limiting_magnitude` の目安：都心 2〜3、郊外の市街地 4、田舎 5〜6、星空で有名な場所 6.5（星表に入っているのは 6.5 等まで）。
 
 よくある変更：
 

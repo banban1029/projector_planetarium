@@ -153,6 +153,7 @@ cmake --build --preset mingw-debug   # ビルド
 | `config.yaml` | 設定ファイル（省略時 `config/projector.yaml`） |
 | `--time "2026-12-15 22:00"` | 起動時の日時（地方時）。YAML の `time.start` より優先 |
 | `--mode jewel` | 起動時のモード |
+| `--location achi` | 起動時の観測地（YAML の `locations` の `id`） |
 | `--grid` | 高度・方位グリッドを表示して起動 |
 | `--compass` | 方位の文字 N/E/S/W を表示して起動 |
 | `--screenshot out.ppm` | 3 フレーム描いて画像（PPM）を保存し、すぐ終了する。検証・資料作り用 |
@@ -185,7 +186,7 @@ Meeus『Astronomical Algorithms』の例題と比べて、恒星時・歳差・�
 ```
 monitor[0]: Generic PnP Monitor 2880x1800@60Hz
 GL 4.5.0 - Build 32.0.101.8626 / Intel(R) Arc(TM) 130V GPU (8GB)
-output: debug 1280x800, observer: 大阪大学 吹田キャンパス (34.82, 135.52)
+output: debug 1280x800, location: 大阪大学 吹田キャンパス (34.82, 135.52)
 stars: 8920
 ---- keys ----
   ...
@@ -223,6 +224,7 @@ stars: 8920
 | `S` / `Shift+S` | 次 / 前の季節（巡回、年をまたいで回り続ける） |
 | `F1`〜`F5` | 春 / 初夏 / 夏 / 秋 / 冬 へ直接ジャンプ |
 | `T` | 季節の自動巡回 ON/OFF |
+| `L` / `Shift+L` | 観測地を切り替え（大阪大学 ⇔ 阿智村。YAML の `locations` の順） |
 | `↑` / `↓` | 時間倍率を上げる / 下げる |
 | `Space` | 一時停止 / 再開 |
 | `R` | 逆再生の切り替え |
@@ -311,7 +313,7 @@ stars: 8920
 | `output` | `debug`（PC画面にウィンドウ）/ `projector`（プロジェクタにフルスクリーン） |
 | `projector.width` / `height` | 出力解像度（ML1050ST+ は 1280×800） |
 | `projector.monitor_index` | `output: projector` のときの出力先モニタ番号（起動ログの `monitor[n]`） |
-| `observer` | 観測地（緯度・経度・タイムゾーン） |
+| `location` / `locations` | 起動時の観測地 / 観測地の一覧（緯度・経度・標高・タイムゾーン・夜空の最暗等級）。既定は大阪大学と阿智村 |
 | `time.start` | 起動時の日時。`"now"` または `"2026-12-14 22:00"` |
 | `time.speed` / `speed_steps` | 起動時の倍率 / `↑↓` で切り替える倍率の段階 |
 | `seasons` | 季節プリセット（並び順 = 巡回順） |
