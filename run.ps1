@@ -1,5 +1,7 @@
 ﻿# ビルドして起動する（PowerShell 用）。MSYS2 Bash / Git Bash では run.sh を使う。
+# プロジェクタがつながっていればプロジェクタに全画面で、無ければ PC の画面にウィンドウで出す。
 #   .\run.ps1                                  Debug ビルドで起動（config/projector.yaml）
+#   .\run.ps1 --output debug                   プロジェクタがあっても PC の画面にウィンドウで出す
 #   .\run.ps1 --release                        Release ビルドで起動
 #   .\run.ps1 --time "2026-12-15 22:00" --grid  それ以外の引数は planetarium.exe にそのまま渡す
 # param() を使わず $args で受けるのは、--time などを PowerShell の引数として解釈させないため
@@ -22,5 +24,6 @@ if (-not (Test-Path "$buildDir\build.ninja")) {
 cmake --build --preset $preset
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-& ".\$buildDir\planetarium.exe" @appArgs
+# --output projector を先に置く（後ろに書いた --output debug が優先される）
+& ".\$buildDir\planetarium.exe" --output projector @appArgs
 exit $LASTEXITCODE

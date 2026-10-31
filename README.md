@@ -1,5 +1,22 @@
 # Projector Planetarium
 
+## すぐ動かす
+
+プロジェクタ（Optoma）がつながっていればプロジェクタに全画面で、無ければ PC の画面にウィンドウで出る。
+初回はビルドに数分かかる。止めるのは `Esc`。
+
+| やること | PowerShell | MSYS2 Bash |
+|---|---|---|
+| 星空を出す | `.\run.ps1` | `./run.sh` |
+| 上映（解説つき、約 5 分半） | `.\show.ps1` | `./show.sh` |
+| 日時・場所を決めて出す | `.\run.ps1 --time "2026-11-02 22:00" --location achi` | `./run.sh --time "2026-11-02 22:00" --location achi` |
+| テストパターン（ピント・明るさ・向きの調整） | `.\run.ps1 --test-pattern` | `./run.sh --test-pattern` |
+| PC の画面だけに出す（プロジェクタがあっても） | `.\run.ps1 --output debug` | `./run.sh --output debug` |
+| プロジェクタの動作確認 | `python tests/verify/projector.py` | `python tests/verify/projector.py` |
+| 全体の検証 | `python tests/verify/verify.py` | `python tests/verify/verify.py` |
+
+キー操作は `H` で一覧が出る（[§3](#3-キーボード操作)）。プロジェクタは Windows の `Win + P` で「拡張」にしておく。
+
 OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影するプログラム。
 開発方針は [PLAN.md](PLAN.md)、設計と実装アルゴリズムは [docs/](docs/README.md) を参照。
 
@@ -472,7 +489,7 @@ python tests/verify/projector.py --manual   # 続けて、人が投影を見て�
    設定 → システム → 通知 →「応答不可」をオンにする。
    または同じ画面の「応答不可を自動的にオンにする」で「全画面モードでアプリを使用するとき」をオンにしておく。
 3. **画面を「拡張」にする**：`Win + P` →「拡張」。PC の画面とプロジェクタに別々の画面を出すため。
-4. **YAML を `output: projector` にする**（または起動時に `--output projector`）：プロジェクタに全画面で星空、PC の画面に **操作パネル** が出る。
+4. **`run.ps1` / `run.sh` / `show.ps1` / `show.sh` で起動する**（自動で `--output projector` になる。exe を直接起動するときは YAML の `output: projector` か `--output projector`）：プロジェクタに全画面で星空、PC の画面に **操作パネル** が出る。
    操作パネルには出力のプレビュー・日時・モード・表示の状態・キー一覧が出て、操作パネルでもキー操作ができる。
 5. **`X` でテストパターン**を出して、ピント・台形・明るさ・北の向きを合わせる（下の表）。もう一度 `X` で星空に戻る。
 6. 上映が終わったら `F12` でクレジットを出す（データの出典の表示）。
@@ -491,7 +508,7 @@ python tests/verify/projector.py --manual   # 続けて、人が投影を見て�
 
 | テストパターンの部分 | 確かめること |
 |---|---|
-| 下端の 17 段の灰色 | 全部の段が見分けられるか（明るさ・ガンマ。`render.gamma` で調整） |
+| 下端の 17 段の灰色 | 全部の段が見分けられるか。明るい側（右端）が同じ白に見えたら `render.white_level` を下げる（Optoma では 0.82）。中間の段が詰まって見えたら `render.gamma` |
 | 上端の暗い 9 段（0〜32） | 何段目から見えるか（黒つぶれ・黒浮き。暗い星がどこまで見えるかの目安） |
 | 中央と四隅の市松模様 | 細かい白黒が見えるか（灰色に溶けていればピントがずれている） |
 | 格子 | まっすぐ・等間隔か（台形のゆがみ） |

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # ビルドして起動する。Git Bash / MSYS2 から実行する。
+# プロジェクタがつながっていればプロジェクタに全画面で、無ければ PC の画面にウィンドウで出す。
 #   ./run.sh                       Debug ビルドで起動（config/projector.yaml）
+#   ./run.sh --output debug        プロジェクタがあっても PC の画面にウィンドウで出す
 #   ./run.sh --release             Release ビルドで起動
 #   ./run.sh config/other.yaml     別の設定ファイルで起動
 set -euo pipefail
@@ -20,4 +22,5 @@ if [[ ! -f "$build_dir/build.ninja" ]]; then
 fi
 cmake --build --preset "$preset"
 
-exec "./$build_dir/planetarium.exe" "$@"
+# --output projector を先に置く（後ろに書いた --output debug が優先される）
+exec "./$build_dir/planetarium.exe" --output projector "$@"
