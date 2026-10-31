@@ -65,14 +65,21 @@ Config loadConfig(const std::string& path) {
         read(r, "show_grid", c.show_grid);
         read(r, "show_compass", c.show_compass);
     }
-    if (auto o = root["observer"]) {
-        auto& c = cfg.observer;
-        read(o, "name", c.name);
-        read(o, "latitude_deg", c.latitude_deg);
-        read(o, "longitude_deg", c.longitude_deg);
-        read(o, "elevation_m", c.elevation_m);
-        read(o, "timezone_hours", c.timezone_hours);
+    if (auto list = root["locations"]) {
+        for (const auto& o : list) {
+            ObserverConfig c;
+            read(o, "id", c.id);
+            read(o, "name", c.name);
+            read(o, "latitude_deg", c.latitude_deg);
+            read(o, "longitude_deg", c.longitude_deg);
+            read(o, "elevation_m", c.elevation_m);
+            read(o, "timezone_hours", c.timezone_hours);
+            read(o, "limiting_magnitude", c.limiting_magnitude);
+            if (c.id.empty()) throw std::runtime_error("every entry in locations needs an id");
+            cfg.locations.push_back(c);
+        }
     }
+    read(root, "location", cfg.location);
     if (auto t = root["time"]) {
         read(t, "start", cfg.time.start);
         read(t, "speed", cfg.time.speed);
@@ -94,5 +101,9 @@ Config loadConfig(const std::string& path) {
         throw std::runtime_error("projection.type must be 'fisheye' or 'perspective': " + cfg.projection.type);
     }
     if (cfg.time.speed_steps.empty()) throw std::runtime_error("time.speed_steps is empty");
+    if (cfg.locations.empty()) throw std::runtime_error("locations is empty");
+    for (auto& l : cfg.locations) {
+        if (l.limiting_magnitude < 0) l.limiting_magnitude = cfg.render.limiting_magnitude;
+    }
     return cfg;
 }

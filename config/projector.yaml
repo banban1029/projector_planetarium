@@ -24,13 +24,25 @@ projection:
   center_az_deg: 180     # 視線方向の方位（0 = 北, 180 = 南）
   rotation_deg: 0        # 映像全体の回転（設置向きの補正）。fisheye は円の外が黒になる
 
-# 観測地
-observer:
-  name: "大阪大学 吹田キャンパス"
-  latitude_deg: 34.82
-  longitude_deg: 135.52
-  elevation_m: 50
-  timezone_hours: 9      # JST
+# 観測地（L / Shift+L キーで切り替え、--location <id> でも指定可）
+location: osaka          # 起動時の観測地の id
+
+locations:
+  - id: osaka
+    name: "大阪大学 吹田キャンパス"
+    latitude_deg: 34.82
+    longitude_deg: 135.52
+    elevation_m: 50
+    timezone_hours: 9          # JST
+    limiting_magnitude: 4.0    # 街明かりで暗い星は見えない（郊外の都市の空）
+
+  - id: achi
+    name: "長野県 阿智村（ヘブンスそのはら）"
+    latitude_deg: 35.47        # 富士見台高原の山頂付近（概略値。0.01° の差は表示に影響しない）
+    longitude_deg: 137.63
+    elevation_m: 1400
+    timezone_hours: 9
+    limiting_magnitude: 6.5    # 「日本一の星空」。肉眼の限界まで見える
 
 # 時間
 time:
@@ -59,7 +71,7 @@ mode: real
 
 # 星の描画（詳細は docs/rendering.md）
 render:
-  limiting_magnitude: 6.0     # 夜空で表示する最暗等級（data/stars.csv は 6.5 等まで）。薄明中は自動で下がる
+  limiting_magnitude: 6.0     # 最暗等級の既定値（観測地で指定が無いとき・幻想モード）。薄明中は自動で下がる
   saturation_magnitude: 3.0   # これより明るい星は芯が飽和し、星像の大きさで明るさを表す
   star_size: 0.8              # 暗い星の星像の大きさ（ガウスの σ, 高さ 800px 基準の px）
   brightness: 1.0             # 星の明るさの倍率

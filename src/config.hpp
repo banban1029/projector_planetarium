@@ -34,12 +34,15 @@ struct RenderConfig {
     bool show_compass = false;
 };
 
+// 観測地。YAML の locations に並べ、L キーで切り替える
 struct ObserverConfig {
+    std::string id;
     std::string name;
     double latitude_deg = 34.82;
     double longitude_deg = 135.52;
     double elevation_m = 0.0;
     double timezone_hours = 9.0;
+    double limiting_magnitude = -1.0;  // その場所の夜空の最暗等級（光害）。負なら render.limiting_magnitude
 };
 
 struct TimeConfig {
@@ -67,7 +70,8 @@ struct Config {
     ProjectorConfig projector;
     ProjectionConfig projection;
     RenderConfig render;
-    ObserverConfig observer;
+    std::vector<ObserverConfig> locations;  // 1 件以上
+    std::string location;                   // 起動時の観測地の id（空なら先頭）
     TimeConfig time;
     std::vector<SeasonPreset> seasons;
     SeasonTourConfig season_tour;
