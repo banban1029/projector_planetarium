@@ -15,8 +15,8 @@ public:
     void prev(SimClock& clock);
     void jumpTo(size_t index, SimClock& clock);  // 最も近い年のその季節へ
 
-    // 自動巡回中なら interval ごとに next() する
-    void update(double realDt, SimClock& clock);
+    // 自動巡回中なら interval ごとに next() する。ジャンプしたら true
+    bool update(double realDt, SimClock& clock);
     void toggleTour();
 
     bool touring() const { return touring_; }

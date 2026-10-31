@@ -72,10 +72,12 @@ void SeasonCycler::jumpTo(size_t index, SimClock& clock) {
     jump(index, best, clock);
 }
 
-void SeasonCycler::update(double realDt, SimClock& clock) {
-    if (!touring_) return;
+bool SeasonCycler::update(double realDt, SimClock& clock) {
+    if (!touring_) return false;
     tourElapsed_ += realDt;
-    if (tourElapsed_ >= tourInterval_) next(clock);
+    if (tourElapsed_ < tourInterval_) return false;
+    next(clock);
+    return true;
 }
 
 void SeasonCycler::toggleTour() {

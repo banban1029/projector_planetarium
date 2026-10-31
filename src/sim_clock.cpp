@@ -38,10 +38,7 @@ double realUnixNow() {
 SimClock::SimClock(double timezoneHours, std::vector<double> speedSteps, double initialSpeed)
     : timezoneHours_(timezoneHours), steps_(std::move(speedSteps)) {
     std::sort(steps_.begin(), steps_.end());
-    // initialSpeed に最も近い段階を選ぶ
-    for (size_t i = 0; i < steps_.size(); ++i) {
-        if (std::abs(steps_[i] - initialSpeed) < std::abs(steps_[step_] - initialSpeed)) step_ = i;
-    }
+    setSpeed(initialSpeed);
     setNow();
 }
 
@@ -107,10 +104,12 @@ void SimClock::slower() {
     if (step_ > 0) --step_;
 }
 
-void SimClock::resetRate() {
+void SimClock::resetRate() { setSpeed(1.0); }
+
+void SimClock::setSpeed(double speed) {
     step_ = 0;
     for (size_t i = 0; i < steps_.size(); ++i) {
-        if (std::abs(steps_[i] - 1.0) < std::abs(steps_[step_] - 1.0)) step_ = i;
+        if (std::abs(steps_[i] - speed) < std::abs(steps_[step_] - speed)) step_ = i;
     }
     paused_ = false;
     reversed_ = false;

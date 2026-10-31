@@ -35,6 +35,7 @@ public:
     void togglePause() { paused_ = !paused_; }
     void toggleReverse() { reversed_ = !reversed_; }
     void resetRate();  // 実時間（×1, 順行, 再生中）に戻す
+    void setSpeed(double speed);  // 最も近い倍率の段階にする（順行・再生中）
 
     double speed() const { return steps_[step_]; }
     bool paused() const { return paused_; }
