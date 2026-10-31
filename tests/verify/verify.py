@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'build' / 'verify'
 MINGW = Path('C:/msys64/mingw64/bin')
 ENV = dict(os.environ, PATH=f'{MINGW};{os.environ.get("PATH", "")}')
-CHECKS = ['build', 'unit', 'keys', 'motion', 'benchmark', 'stellarium', 'screenshots']
+CHECKS = ['build', 'unit', 'keys', 'motion', 'benchmark', 'stellarium', 'screenshots', 'show']
 
 
 class Result:
@@ -222,6 +222,7 @@ def check_keys(r):
 
 # ---------------------------------------------------------------- 動き
 def record(r, name, args, count, interval, wait=0.0, config=None):
+    (OUT / 'motion').mkdir(exist_ok=True)
     prefix = OUT / 'motion' / name
     cmd = ([config] if config else []) + args + ['--record', prefix, '--count', count, '--interval', interval]
     if wait:
@@ -471,6 +472,113 @@ def check_screenshots(r):
     r.info(f'{len(scene_files) + len(mode_files)} 枚を `build/verify/screenshots/` に保存（1 枚ずつ見るとき用）')
 
 
+# ---------------------------------------------------------------- 上映（解説つきシナリオ）
+SHOW = 'shows/autumn_2026.yaml'
+SHOW_SCENES = [(3, '大阪 22:00: 明るい空・街並み、字幕「ここは大阪」'), (14, '大阪: 土星（南の高い空）とカペラ（北東）を円で指す'),
+               (55, '阿智村: 天の川、字幕「空いっぱいに星が」'), (85, '夏の大三角（西の低い空、金色の線）と、ベガ・アルタイルの円'),
+               (115, '秋の星座線・星座名とペガススの四辺形（ほぼ天頂）'), (145, 'カシオペヤ座の W と北極星への案内線、北極星の円'),
+               (175, '土星（南の高い空）を円で指す'), (218, '翌 3:00: 東の空の月・火星・木星を円で指す（月明かりで空が少し明るい）'),
+               (242, '冬のダイヤモンド（南の空）'), (295, 'クレジット')]
+
+
+def check_show_audio(r, small):
+    # 台本の読み上げ文と、作られた WAV の長さを比べる（ナレーションが場面に収まるか）
+    p = app(['--scenario', SHOW, '--dump-narration'])
+    settings, steps = {}, []
+    for line in p.stdout.splitlines():
+        f = line.split('\t')
+        if line.startswith('#') and len(f) >= 2:
+            settings[f[0][1:]] = f[1]
+        elif len(f) == 3:
+            steps.append((f[0], float(f[1]), f[2]))
+    folder = ROOT / settings.get('dir', '')
+    texts = [st for st in steps if st[2]]
+    missing = [st for st in texts if not (folder / f'step_{st[0]}.wav').exists()]
+    if missing:
+        # 無ければ作る（Windows の日本語音声が必要）
+        gen = run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+                   ROOT / 'scripts' / 'make_show_audio.ps1', SHOW], timeout=900)
+        missing = [st for st in texts if not (folder / f'step_{st[0]}.wav').exists()]
+        if missing:
+            r.warn('ナレーションを作れなかった（日本語の音声合成が無い？）: ' + (gen.stdout + gen.stderr)[-500:])
+            return
+    import wave
+    rows, too_long = [], 0
+    for index, duration, text in texts:
+        with wave.open(str(folder / f'step_{index}.wav')) as w:
+            seconds = w.getnframes() / w.getframerate()
+        ok = seconds <= duration - 0.5
+        too_long += not ok
+        rows.append(f'| {index} | {seconds:.1f} s | {duration:.0f} s | {"OK" if ok else "**長すぎ**"} | {text} |')
+    r.info(f'ナレーション {len(texts)} 本（{folder.relative_to(ROOT)}）')
+    r.info('| 場面 | ナレーション | 場面の長さ | 結果 | 読み上げ文 |\n|---|---|---|---|---|\n' + '\n'.join(rows))
+    if too_long:
+        r.fail(f'場面より長いナレーションが {too_long} 本ある')
+    bgm = ROOT / settings.get('bgm', '')
+    if not bgm.is_file():
+        r.fail(f'BGM が無い: {settings.get("bgm")}')
+    # 再生: 上映を始めると BGM とナレーションが流れる（画像を撮るときは音を消して流す）
+    log = app([small, '--scenario', SHOW, '--play', '--seek', 30, '--wait', 1.0, '--screenshot', OUT / 'show' / 'audio.png'])
+    out = log.stdout + log.stderr
+    for expect, meaning in (('[audio] bgm', 'BGM の再生'), ('[audio] narration', 'ナレーションの再生')):
+        if expect in out:
+            r.info(f'- {meaning}: ログに `{expect}` が出た')
+        else:
+            r.fail(f'{meaning}が始まらない（ログに `{expect}` が無い）')
+
+
+def check_show(r):
+    small = OUT / 'small.yaml'
+    if not small.exists():
+        small = write_config('small.yaml', 640, 400)
+    shots = OUT / 'show'
+    shots.mkdir(exist_ok=True)
+    # 台本の読み込み: 名前がすべて引けて、長さが約 5 分
+    p = app([small, '--scenario', SHOW, '--play', '--screenshot', shots / 'start.png'])
+    log = p.stdout + p.stderr
+    m = re.search(r'\[show\] .* \((\d+) steps, (\d+) s\)', log)
+    if not m:
+        r.fail('台本が読めない')
+        r.info('```\n' + log[-2000:] + '\n```')
+        return
+    steps, total = int(m.group(1)), int(m.group(2))
+    r.info(f'`{SHOW}`: {steps} 場面、合計 {total} 秒（{total // 60} 分 {total % 60} 秒）')
+    if not 270 <= total <= 330:
+        r.fail(f'長さが約 5 分（270〜330 秒）でない: {total} 秒')
+    unknown = [l for l in log.splitlines() if '[show] unknown' in l]
+    if unknown:
+        r.fail('台本の名前が引けない: ' + ', '.join(unknown))
+    else:
+        r.info('台本の目印・星・惑星の名前はすべて引けた')
+
+    check_show_audio(r, small)
+
+    # 場面ごとの画像（--seek でその時点まで進めて撮る）
+    files, notes = [], []
+    for sec, note in SHOW_SCENES:
+        path = shots / f'scene_{sec:03d}.png'
+        app([small, '--scenario', SHOW, '--play', '--seek', sec, '--screenshot', path])
+        if path.exists():
+            files.append(path)
+            notes.append(f'{len(notes) + 1}. {sec // 60}:{sec % 60:02d} — {note}')
+        else:
+            r.fail(f'{sec} 秒の場面が撮れない')
+    r.images.append(('sheet_show.png', files, 3, '左上から順に（上映開始からの時間）:\n' + '\n'.join(notes)))
+
+    # 実時間で、大阪 → 阿智村の切り替えと「目が暗さに慣れる」演出を撮る（星の数が増えていくはず）
+    frames, rec = record(r, 'show_arrival', ['--scenario', SHOW, '--play', '--seek', 22], 5, 3.0, config=small)
+    if frames:
+        # 字幕のある下 15% を除いて、星の明るい画素を数える。比べるのは阿智村に着いた直後（3 枚目）と最後
+        w = 640
+        limit = int(len(frames[0]) // 3 // w * 0.85) * w * 3
+        counts = [sum(1 for j in range(0, limit, 3) if max(f[j], f[j + 1], f[j + 2]) > 60) for f in frames]
+        r.info('大阪 → 阿智村（3 秒ごと）の星の明るい画素の数: ' + ' → '.join(str(c) for c in counts))
+        if not counts[-1] > counts[2] * 1.5:
+            r.fail('阿智村に着いてから星が増えていかない（目が慣れる演出が効いていない）')
+        r.images.append(('show_arrival.png', rec, 3,
+                         '大阪から阿智村へ（3 秒ごと）: 大阪 → フェード → 山並みの阿智村。星が少しずつ増えていく'))
+
+
 # ---------------------------------------------------------------- まとめ
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -490,9 +598,11 @@ def main():
 
     titles = {'build': 'ビルド（Debug・Release、警告なし）', 'unit': '自動テスト（ctest）',
               'keys': 'キー操作（実際のウィンドウにキー入力を送る）', 'motion': '動き（連続撮影してフレームを比べる）',
-              'benchmark': '描画速度', 'stellarium': 'Stellarium との天体位置の比較', 'screenshots': '目視確認用の画像'}
+              'benchmark': '描画速度', 'stellarium': 'Stellarium との天体位置の比較', 'screenshots': '目視確認用の画像',
+              'show': '上映（解説つきシナリオ）'}
     funcs = {'build': check_build, 'unit': check_unit, 'keys': check_keys, 'motion': check_motion,
-             'benchmark': check_benchmark, 'stellarium': check_stellarium, 'screenshots': check_screenshots}
+             'benchmark': check_benchmark, 'stellarium': check_stellarium, 'screenshots': check_screenshots,
+             'show': check_show}
     results = []
     for name in CHECKS:
         if name not in selected:
