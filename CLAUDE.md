@@ -37,7 +37,7 @@ python tests/verify/projector.py    # 自動の確認。結果は build/verify/p
 
 ## 上映（解説つきシナリオ）
 
-- 台本は `shows/*.yaml`、ストーリー構成は同じ名前の `.md`。`./show.sh`（PowerShell は `.\show.ps1`）で流す。
+- 台本は `shows/*.yaml`、ストーリー構成は同じ名前の `.md`。`./show.sh --release`（PowerShell は `.\show.ps1 --release`）で流す。
 - 台本を変えたら `python tests/verify/verify.py --no-build --only show` で、名前が引けるか・長さ・場面の画像を確かめる。
   場面の画像は `build/verify/sheet_show.png` と `show_arrival.png` を開いて、字幕と演出が台本どおりか見る。
 - 星や惑星の位置・見え方を字幕で言うときは、`--dump-positions --dump-names "Vega,Saturn"` で本当にそうなっているかを先に確かめる。

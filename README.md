@@ -3,32 +3,41 @@
 ## すぐ動かす
 
 プロジェクタ（Optoma）がつながっていればプロジェクタに全画面で、無ければ PC の画面にウィンドウで出る。
-初回はビルドに数分かかる。止めるのは `Esc`。
+初回はビルドに数分かかる。止めるのは `Esc`。プロジェクタは Windows の `Win + P` で「拡張」にしておく。
+
+### 本番（プロジェクタで見せる）：`--release` をつける
+
+```powershell
+# PowerShell
+powershell -ExecutionPolicy Bypass -File .\show.ps1 --release   # 上映（解説つき、約 5 分半）
+powershell -ExecutionPolicy Bypass -File .\run.ps1 --release    # 今の星空（リアルモード・現在時刻）
+```
+
+```sh
+# MSYS2 Bash
+./show.sh --release   # 上映（解説つき、約 5 分半）
+./run.sh --release    # 今の星空（リアルモード・現在時刻）
+```
+
+- `show` も `run` も、**`--release` をつけると Release ビルド**（速い。本番用）、つけないと Debug ビルド（開発中の確認用）。
+- Release が Windows のスマート アプリ コントロールに止められたときは、自動で Debug で起動する。
+- `powershell -ExecutionPolicy Bypass -File` は、PowerShell の実行ポリシーで .ps1 が止められている PC 用（設定は変わらない）。
+  一度だけ `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` を実行しておけば、以後は `.\show.ps1 --release`、`.\run.ps1 --release` だけで動く。
+
+### そのほか
+
+PowerShell の欄は、実行ポリシーで止められる PC では先頭に `powershell -ExecutionPolicy Bypass -File` をつける。
 
 | やること | PowerShell | MSYS2 Bash |
 |---|---|---|
-| 今の星空を出す（リアルモード・現在時刻） | `.\run.ps1` | `./run.sh` |
-| 上映（解説つき、約 5 分半） | `.\show.ps1` | `./show.sh` |
-| 日時・場所を決めて出す | `.\run.ps1 --time "2026-11-02 22:00" --location achi` | `./run.sh --time "2026-11-02 22:00" --location achi` |
-| テストパターン（ピント・明るさ・向きの調整） | `.\run.ps1 --test-pattern` | `./run.sh --test-pattern` |
-| PC の画面だけに出す（プロジェクタがあっても） | `.\run.ps1 --output debug` | `./run.sh --output debug` |
+| 日時・場所を決めて出す | `.\run.ps1 --release --time "2026-11-02 22:00" --location achi` | `./run.sh --release --time "2026-11-02 22:00" --location achi` |
+| テストパターン（ピント・明るさ・向きの調整） | `.\run.ps1 --release --test-pattern` | `./run.sh --release --test-pattern` |
+| PC の画面だけに出す（プロジェクタがあっても） | `.\run.ps1 --release --output debug` | `./run.sh --release --output debug` |
+| 開発中の確認（Debug ビルド） | `.\run.ps1` | `./run.sh` |
 | プロジェクタの動作確認 | `python tests/verify/projector.py` | `python tests/verify/projector.py` |
 | 全体の検証 | `python tests/verify/verify.py` | `python tests/verify/verify.py` |
 
-実行中に `N` で現在時刻・実時間（×1）に戻る（季節ジャンプや早送りのあとに）。キー操作は `H` で一覧が出る（[§3](#3-キーボード操作)）。プロジェクタは Windows の `Win + P` で「拡張」にしておく。
-
-本番（上映・投影）は Release ビルドが速い：`.\run.ps1 --release`（`show.ps1` は最初から Release）。
-Release が Windows のスマート アプリ コントロールに止められたときは、自動で Debug ビルドで起動する。
-
-PowerShell で「このシステムではスクリプトの実行が無効になっているため…読み込むことができません」と出るときは、
-PowerShell の実行ポリシーでスクリプトが止められている。次のように起動すれば動く（設定は変わらない）：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\show.ps1
-powershell -ExecutionPolicy Bypass -File .\run.ps1 --release
-```
-
-毎回書くのが面倒なら、一度だけ `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` を実行すると、以後は `.\show.ps1` で動く。
+実行中のキー：`Space` で一時停止・再開（上映中は音も止まる）、`N` で現在時刻・実時間（×1）に戻る、`X` でテストパターン、`[` / `]` で白の最大値、`H` で一覧（[§3](#3-キーボード操作)）。
 
 OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影するプログラム。
 開発方針は [PLAN.md](PLAN.md)、設計と実装アルゴリズムは [docs/](docs/README.md) を参照。
@@ -67,7 +76,7 @@ OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影
 | ファイル | 内容 |
 |---|---|
 | `run.sh` / `run.ps1` | ビルドして起動するスクリプト（MSYS2 Bash 用 / PowerShell 用） |
-| `show.sh` / `show.ps1` | 解説つき上映「大阪から阿智村へ ― 11 月の星空」（約 5 分）を流すスクリプト |
+| `show.sh` / `show.ps1` | 解説つき上映「大阪から阿智村へ ― 11 月の星空」（約 5 分半）を流すスクリプト（`--release` で Release ビルド） |
 | [shows/](shows/autumn_2026.md) | 上映の台本（YAML）とストーリー構成（.md） |
 | `CMakeLists.txt` / `CMakePresets.json` | ビルド設定 |
 | [PLAN.md](PLAN.md) | 開発方針・マイルストーン・TODO |
@@ -301,7 +310,7 @@ font: C:/Windows/Fonts/BIZ-UDGothicR.ttc
 | `T` | 季節の自動巡回 ON/OFF |
 | `L` / `Shift+L` | 観測地を切り替え（大阪大学 ⇔ 阿智村。YAML の `locations` の順） |
 | `↑` / `↓` | 時間倍率を上げる / 下げる |
-| `Space` | 一時停止 / 再開 |
+| `Space` | 一時停止 / 再開。上映中は場面・時間・ナレーション・BGM をまとめて止め、もう一度押すと続きから |
 | `R` | 逆再生の切り替え |
 | `←` / `→` | 1 時間戻す / 進める（`Shift` 付きで 1 日、押しっぱなしで連続） |
 | `N` | 現在時刻・×1（実時間）に戻す |
@@ -451,12 +460,12 @@ YAML を変えたら **再起動するだけ**でよい（再ビルド不要）�
 初回は Windows の日本語音声でナレーションを作り、BGM を作曲する（1 分ほど。2 回目からは台本が変わった場面だけ作り直す）。
 
 ```sh
-./show.sh                    # MSYS2 Bash
-./show.sh --seek 120         # 2 分の場面から（確認用）
+./show.sh --release          # MSYS2 Bash（本番。Release ビルド）
+./show.sh --seek 120         # 2 分の場面から（確認用。Debug ビルド）
 ```
 
 ```powershell
-.\show.ps1                   # PowerShell
+.\show.ps1 --release         # PowerShell（本番。Release ビルド）
 ```
 
 | 上映 | 内容 |
@@ -514,7 +523,8 @@ python tests/verify/projector.py --manual   # 続けて、人が投影を見て�
 
 > **Windows のスマート アプリ コントロール**が有効な PC では、ビルドし直した exe の実行を Windows が止めることがある
 > （「アプリケーション制御ポリシーによってこのファイルがブロックされました」）。コードの問題ではない。
-> 上映（`show.sh` / `show.ps1`）とプロジェクタの確認は Release ビルドを使う。止められたら、もう一度ビルドするか、
+> 本番の上映（`show --release`）とプロジェクタの確認は Release ビルドを使う。止められたときは自動で Debug で起動する。
+> Release に戻したいときは、もう一度ビルドするか、
 > Windows セキュリティ → アプリとブラウザーのコントロール → スマート アプリ コントロール の設定を確かめる。
 
 アプリの実行中は、画面が消えたりスリープしたりしないようにしている（終了すると元に戻る）。

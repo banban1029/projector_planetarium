@@ -11,7 +11,7 @@ $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
 
 # 台本の読み上げ文はアプリに出してもらう（YAML の読み方をアプリと揃えるため）
 $exe = Join-Path $root 'build\release\planetarium.exe'
-if (-not (Test-Path $exe)) {
+if (-not (Test-Path $exe) -and -not (Test-Path (Join-Path $root 'build\debug\planetarium.exe'))) {
     cmake --preset mingw-release | Out-Null
     cmake --build --preset mingw-release | Out-Null
 }
