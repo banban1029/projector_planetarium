@@ -18,97 +18,103 @@ scenario:
   audio:
     narration_dir: build/shows/autumn_2026   # 場面ごとのナレーション step_01.wav …（git 管理外）
     voice: "Microsoft Haruka Desktop"        # Windows の日本語の声
-    rate: 0                                  # 話す速さ（-10〜10）
+    rate: -1                                 # 話す速さ（-10〜10）。少しゆっくり、語りかけるように
+    narration_gain: 5                        # ナレーションを大きくする倍率（割れないところで頭打ちになる。実際は 2 倍ほど）
     bgm: build/shows/autumn_2026/bgm.wav     # 繰り返し流す BGM（scripts/make_bgm.py が作曲する）
-    bgm_volume: 0.35                         # ナレーション中は自動で 4 割に下がる
+    bgm_volume: 1.0                          # BGM の音量
+    bgm_duck: 0.15                           # ナレーション中は BGM をこの割合に下げる（声を聞きやすく）
 
   steps:
     # ---- 序章：大阪 ----
-    - duration_sec: 6
+    - duration_sec: 10
       location: osaka
       time: start
       speed: 1
       mode: real
       fade_sec: 2
+      compass: true            # 方位の文字は最後まで出しておく（字幕で方角を言うため）
       constellations: false
       constellation_names: false
       labels: false
-      subtitle: "ここは大阪。11月の夜空を見上げてみましょう。"
-    - duration_sec: 12
-      subtitle: "街の明かりが明るすぎて、見える星はほんのわずか。\n明るい土星とカペラが、かろうじて見えるだけです。"
+      subtitle: "ようこそ。今夜は11月2日、夜10時。\n大阪の空を見上げてみましょう。"
+      narration: "ようこそ。今夜は十一月二日、夜十時。大阪の空を見上げてみましょう。"
+    - duration_sec: 15
+      subtitle: "はじめに方角です。画面の上が北、下が南。\n空を見上げているので、地図とは逆に、左が東、右が西になります。"
+    - duration_sec: 14
       point: [土星, カペラ]
-    - duration_sec: 8
-      subtitle: "では、日本一星がきれいな場所として知られる、\n長野県・阿智村へ行ってみましょう。"
+      subtitle: "けれど街の明かりにかき消されて、見える星はほんのわずか。\n土星とカペラが、かすかに光っているだけです。"
+    - duration_sec: 10
+      subtitle: "さあ、日本一星がきれいな村、\n長野県・阿智村へ、星に会いに出かけましょう。"
 
     # ---- 本編 1：阿智村に着く ----
     - duration_sec: 20
       location: main
       fade_sec: 3
       eye_adapt_sec: 15
-      subtitle: "標高1,400m、阿智村の山の上。目が暗さに慣れてくると……"
+      subtitle: "標高1,400m、阿智村の山の上。\n目が暗さに慣れてくると……"
       narration: "標高千四百メートル、阿智村の山の上。目が暗さに慣れてくると。"
     - duration_sec: 16
-      subtitle: "空いっぱいに星があふれてきました。\n白くかすむ光の帯が、天の川です。"
+      subtitle: "空いっぱいに、こぼれ落ちそうな星。\n白くかすむ光の川が、天の川です。"
 
-    # ---- 本編 2：季節の目印をたどる ----
+    # ---- 本編 2：季節の目印と、星の物語 ----
     - duration_sec: 15
       asterisms: [summer_triangle]
-      subtitle: "西の空低く、沈みかけている大きな三角形が「夏の大三角」。"
-    - duration_sec: 15
+      subtitle: "西の空、山の端へ沈みかけている大きな三角形。\n過ぎた夏の名残、「夏の大三角」です。"
+    - duration_sec: 18
       asterisms: [summer_triangle]
       point: [ベガ, アルタイル]
-      subtitle: "織姫星ベガと彦星アルタイルが、\n天の川をはさんで向かい合っています。"
-    - duration_sec: 15
+      subtitle: "織姫星ベガと、彦星アルタイル。\n天の川にへだてられた二人は、今夜も川をはさんで見つめ合っています。"
+    - duration_sec: 12
       asterisms: [autumn_square]
       subtitle: "頭の真上には、秋の目印「ペガススの四辺形」。"
-    - duration_sec: 15
+    - duration_sec: 17
       asterisms: [autumn_square]
       constellations: true
       constellation_names: true
-      subtitle: "この大きな四角形から、秋の星座をたどっていけます。"
-    - duration_sec: 15
+      subtitle: "四角形から、秋の星座たちへ。\nアンドロメダ姫と、姫を救った勇者ペルセウスの物語が、空に描かれています。"
+    - duration_sec: 14
       constellations: false
       constellation_names: false
       asterisms: [cassiopeia_w]
-      subtitle: "北の空高くには、Wの形をしたカシオペヤ座。"
-      narration: "北の空高くには、ダブリューの形をしたカシオペヤ座。"
-    - duration_sec: 15
+      subtitle: "北の空高くには、Wの形のカシオペヤ座。\nアンドロメダ姫の母、美しい王妃の姿です。"
+      narration: "北の空高くには、ダブリューの形のカシオペヤ座。アンドロメダ姫の母、美しい王妃の姿です。"
+    - duration_sec: 17
       asterisms: [cassiopeia_w, polaris_guide]
       point: [北極星]
-      subtitle: "Wの真ん中の星から線をのばすと、北極星が見つかります。\n北極星は一晩中ほとんど動きません。"
-      narration: "ダブリューの真ん中の星から線をのばすと、北極星が見つかります。北極星は一晩中ほとんど動きません。"
+      subtitle: "Wの真ん中の星から線をのばすと、北極星。\n一晩中ほとんど動かず、昔から旅人の道しるべになってきました。"
+      narration: "ダブリューの真ん中の星から線をのばすと、北極星。一晩中ほとんど動かず、昔から旅人の道しるべになってきました。"
     - duration_sec: 15
       point: [フォーマルハウト]
-      subtitle: "南の低い空に、ぽつんと明るい星。\n「秋のひとつ星」フォーマルハウトです。"
+      subtitle: "南の低い空に、ぽつんとひとつ。\n「秋のひとつ星」フォーマルハウトが、さみしげに光っています。"
 
     # ---- 本編 3：惑星と、時間の流れ ----
     - duration_sec: 15
       point: [土星]
-      subtitle: "南の空高く光るのは土星。\n星のようにチカチカまたたかないのが、惑星の見分け方です。"
+      subtitle: "南の空高く、静かに光るのは土星。\nまたたかずに光るのが、惑星のしるしです。"
     - duration_sec: 30
       speed: 600
-      subtitle: "時間を早送りしてみましょう。\n星は東から昇り、西へ沈んでいきます。"
+      subtitle: "少し時間を進めてみましょう。\n星たちは東から昇り、西へと旅をしていきます。"
     - duration_sec: 12
       time: "start+5:00"
       speed: 1
       fade_sec: 1.5
       point: [月, 火星, 木星]
-      subtitle: "夜明け前、東の空には月と火星、木星が並んで昇ってきました。"
-    - duration_sec: 12
+      subtitle: "夜明け前。東の空には、月と火星、木星が\n寄りそうように昇ってきました。"
+    - duration_sec: 14
       asterisms: [winter_triangle]
-      subtitle: "南の空高くには、ベテルギウス・シリウス・プロキオンを結んだ「冬の大三角」。"
+      subtitle: "南の空高くには、ベテルギウス・シリウス・プロキオンを結んだ\n「冬の大三角」。季節はもう、冬へと向かっています。"
     - duration_sec: 13
       asterisms: [winter_diamond]
-      subtitle: "さらに6つの1等星を結ぶと、大きな「冬のダイヤモンド」になります。"
-      narration: "さらに六つの一等星を結ぶと、大きな冬のダイヤモンドになります。"
+      subtitle: "さらに6つの1等星を結ぶと、\n夜空にきらめく「冬のダイヤモンド」になります。"
+      narration: "さらに六つの一等星を結ぶと、夜空にきらめく冬のダイヤモンドになります。"
 
     # ---- 終章 ----
     - duration_sec: 22
       meteor_rate: 0.8
       meteor_radiant: [56, 18]   # おうし座流星群の放射点付近（赤経・赤緯 [度]）
-      subtitle: "11月は、おうし座流星群の季節。\nゆっくり流れる明るい流れ星が見られることもあります。"
+      subtitle: "11月は、おうし座流星群の季節。\nゆっくり流れる明るい流れ星に、そっと願いをかけてみませんか。"
     - duration_sec: 19
       meteor_rate: 0
-      subtitle: "阿智村の星空、いかがでしたか。\n晴れた夜には、ぜひ本物の空を見上げてみてください。"
+      subtitle: "阿智村の星空、いかがでしたか。\n大切な人と、本物の星空を見上げる夜が訪れますように。"
     - duration_sec: 10
       credits: true
