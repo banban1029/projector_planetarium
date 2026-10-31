@@ -68,6 +68,13 @@ void onKey(GLFWwindow* window, int key, int /*scancode*/, int action, int mods) 
         case GLFW_KEY_M: selectMode(app, app.mode + (shift ? allModes().size() - 1 : 1)); break;
         case GLFW_KEY_S: shift ? app.seasons.prev(app.clock) : app.seasons.next(app.clock); break;
         case GLFW_KEY_T: app.seasons.toggleTour(); break;
+        case GLFW_KEY_L: {
+            const size_t n = app.locations.size();
+            app.location = (app.location + (shift ? n - 1 : 1)) % n;
+            const auto& l = app.locations[app.location];
+            std::printf("[location] %s (%.2f, %.2f)\n", l.name.c_str(), l.latitude_deg, l.longitude_deg);
+            break;
+        }
         case GLFW_KEY_UP: app.clock.faster(); break;
         case GLFW_KEY_DOWN: app.clock.slower(); break;
         case GLFW_KEY_SPACE: app.clock.togglePause(); break;
@@ -107,6 +114,7 @@ void printHelp() {
         "  S / Shift+S next / previous season (cyclic)\n"
         "  F1-F5       jump to season preset\n"
         "  T           season auto tour on/off\n"
+        "  L / Shift+L next / previous location\n"
         "  Up / Down   time speed step up / down\n"
         "  Space       pause / resume\n"
         "  R           reverse time\n"
@@ -123,9 +131,10 @@ std::string statusLine(const AppState& app) {
     const auto& mode = allModes()[app.mode];
     const char* state = app.clock.paused() ? "||" : (app.clock.reversed() ? "<<" : ">>");
     const std::string season = app.seasons.currentName();
-    char buf[320];
-    std::snprintf(buf, sizeof(buf), "[%s] %s  %s x%g%s%s%s  太陽高度 %+.0f°  |  現在 %s", mode.name,
-                  app.clock.formatLocal().c_str(), state, app.clock.speed(),
+    char buf[512];
+    std::snprintf(buf, sizeof(buf), "[%s] %s  %s  %s x%g%s%s%s  太陽高度 %+.0f°  |  現在 %s", mode.name,
+                  app.locations[app.location].name.c_str(), app.clock.formatLocal().c_str(), state,
+                  app.clock.speed(),
                   season.empty() ? "" : "  季節: ", season.c_str(),
                   app.seasons.touring() ? " (巡回中)" : "", app.sunAltDeg, app.clock.formatRealNow().c_str());
     return buf;

@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
+#include <vector>
 
+#include "config.hpp"
 #include "seasons.hpp"
 #include "sim_clock.hpp"
 #include "sky_renderer.hpp"
@@ -13,6 +15,8 @@ struct AppState {
     SimClock clock;
     SeasonCycler seasons;
     size_t mode = 0;
+    std::vector<ObserverConfig> locations;
+    size_t location = 0;
     ViewSettings view{};
     Overlays overlays{};
     double sunAltDeg = 0.0;  // 表示用（毎フレーム更新）

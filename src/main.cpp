@@ -33,6 +33,7 @@ SkyState computeSky(const SimClock& clock, const ObserverConfig& obs) {
     const double lst = astro::greenwichMeanSiderealDeg(jd) + obs.longitude_deg;
     sky.sunHorizon = astro::equatorialToHorizon(lst, obs.latitude_deg) * astro::equatorialVector(ra, dec);
     astro::altAz(sky.sunHorizon, sky.sunAltDeg, az);
+    sky.nightMagLimit = obs.limiting_magnitude;
     return sky;
 }
 
@@ -71,11 +72,12 @@ GLFWwindow* createOutputWindow(const Config& cfg) {
     return glfwCreateWindow(pc.width, pc.height, "Projector Planetarium", target, nullptr);
 }
 
-// コマンドライン: planetarium [config.yaml] [--time "YYYY-MM-DD HH:MM"] [--mode id] [--grid] [--compass]
+// コマンドライン: planetarium [config.yaml] [--time "YYYY-MM-DD HH:MM"] [--mode id] [--location id]
+//                            [--grid] [--compass]
 //                            [--screenshot out.ppm]（3 フレーム描いて保存し終了。検証・資料用）
 struct Options {
     std::string configPath = PLANETARIUM_ROOT "/config/projector.yaml";
-    std::string time, mode, screenshot;
+    std::string time, mode, location, screenshot;
     bool grid = false;
     bool compass = false;
 };
@@ -87,6 +89,7 @@ Options parseArgs(int argc, char** argv) {
         const bool hasValue = i + 1 < argc;
         if (a == "--time" && hasValue) o.time = argv[++i];
         else if (a == "--mode" && hasValue) o.mode = argv[++i];
+        else if (a == "--location" && hasValue) o.location = argv[++i];
         else if (a == "--screenshot" && hasValue) o.screenshot = argv[++i];
         else if (a == "--grid") o.grid = true;
         else if (a == "--compass") o.compass = true;
@@ -151,15 +154,27 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::printf("GL %s / %s\n", glGetString(GL_VERSION), glGetString(GL_RENDERER));
-    std::printf("output: %s %dx%d, observer: %s (%.2f, %.2f)\n", cfg.output.c_str(), cfg.projector.width,
-                cfg.projector.height, cfg.observer.name.c_str(), cfg.observer.latitude_deg,
-                cfg.observer.longitude_deg);
+    size_t location = cfg.locations.size();
+    const std::string locationId = opts.location.empty() ? cfg.location : opts.location;
+    for (size_t i = 0; i < cfg.locations.size(); ++i) {
+        if (cfg.locations[i].id == locationId) location = i;
+    }
+    if (location == cfg.locations.size()) {
+        if (!locationId.empty()) std::fprintf(stderr, "unknown location '%s', using the first one\n", locationId.c_str());
+        location = 0;
+    }
+    const auto& obs = cfg.locations[location];
+    std::printf("output: %s %dx%d, location: %s (%.2f, %.2f)\n", cfg.output.c_str(), cfg.projector.width,
+                cfg.projector.height, obs.name.c_str(), obs.latitude_deg, obs.longitude_deg);
 
+    // 時刻の表示は起動時の観測地のタイムゾーンで行う（日本国内の切り替えなら常に JST）
     AppState app{
         window,
-        SimClock(cfg.observer.timezone_hours, cfg.time.speed_steps, cfg.time.speed),
+        SimClock(obs.timezone_hours, cfg.time.speed_steps, cfg.time.speed),
         SeasonCycler(cfg.seasons, cfg.season_tour.interval_sec, cfg.season_tour.enabled),
         findMode(cfg.mode),
+        cfg.locations,
+        location,
     };
     app.view = viewFromConfig(cfg);
     app.overlays.grid = cfg.render.show_grid || opts.grid;
@@ -193,7 +208,7 @@ int main(int argc, char** argv) {
 
         app.clock.update(dt);
         app.seasons.update(dt, app.clock);
-        const SkyState sky = computeSky(app.clock, cfg.observer);
+        const SkyState sky = computeSky(app.clock, app.locations[app.location]);
         app.sunAltDeg = sky.sunAltDeg;
 
         if (now - lastTitle > 0.1) {

@@ -25,6 +25,7 @@ struct SkyState {
     astro::Mat3 j2000ToHorizon;
     astro::Vec3 sunHorizon;  // 太陽方向（地平座標の単位ベクトル）
     double sunAltDeg;
+    double nightMagLimit;  // 観測地の夜空の最暗等級（リアルモード）
 };
 
 // 星空に重ねる補助表示（キーで ON/OFF）

@@ -219,8 +219,8 @@ void SkyRenderer::render(int width, int height, const ViewSettings& view, const 
     if (width <= 0 || height <= 0) return;  // 最小化中
     ensureTarget(width, height);
 
-    // 幻想モードは常に夜空として描く
-    SkyLight light = style.realisticSky ? skyLightForSun(sky.sunAltDeg, render_.limiting_magnitude)
+    // リアルモードは観測地の空の暗さと薄明に従う。幻想モードは常に暗い夜空として描く
+    SkyLight light = style.realisticSky ? skyLightForSun(sky.sunAltDeg, sky.nightMagLimit)
                                         : skyLightForSun(-90.0, render_.limiting_magnitude);
 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
