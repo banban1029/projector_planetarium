@@ -7,6 +7,7 @@ GLSL 4.50 のシェーダ。実行時に読み込むので、**シェーダだ�
 
 | 順 | 頂点 | ジオメトリ | フラグメント | 内容 |
 |---|---|---|---|---|
+| ⓪ 起動時に 1 回 | [fullscreen.vert](fullscreen.vert) | | [milkyway_bake.frag](milkyway_bake.frag) | 天の川を全天の画像（J2000、2048×1024）に描く |
 | ① 背景 | [fullscreen.vert](fullscreen.vert) | | [sky.frag](sky.frag) | 画素ごとに逆投影し、空の色（薄明・月明かり）・天の川・光害・オーロラ・星雲・地上の景色・グリッド |
 | ② 星座線 | [lines.vert](lines.vert) | [lines.geom](lines.geom) | [lines.frag](lines.frag) | 線分を太さのある四角形に広げる（流れ星・ワープの光跡も同じ） |
 | ③ 恒星・惑星 | [stars.vert](stars.vert) | | [stars.frag](stars.frag) | 1 星 = 1 点スプライト。大気差・減光・瞬き・明るさ・大きさ、ガウスの星像・光芒・十字の光条 |

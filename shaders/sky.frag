@@ -19,7 +19,7 @@ uniform bool u_showGrid;
 
 out vec4 o_color;
 
-// ---- ノイズ（値ノイズ + fBm）----
+// ---- ノイズ（値ノイズ + fBm）。オーロラ・星雲で使う ----
 float hash3(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
     p *= 17.0;
@@ -46,27 +46,12 @@ float fbm(vec3 p) {
 }
 
 // ---- 天の川 ----
-// J2000 赤道 -> 銀河座標（IAU 1958 の定義による定数行列。GLSL は列優先なので j * M = 行列 × j）
-const mat3 kJ2000ToGalactic = mat3(-0.0548755604, -0.8734370902, -0.4838350155,
-                                   0.4941094279, -0.4448296300, 0.7469822445,
-                                   -0.8676661490, -0.1980763734, 0.4559837762);
+// 起動時に milkyway_bake.frag が全天の画像（J2000 の赤経・赤緯）に描いておいたものを引く
+uniform sampler2D u_milkyWayTex;
 
 vec3 milkyWay(vec3 j) {
-    vec3 g = j * kJ2000ToGalactic;
-    float b = asin(clamp(g.z, -1.0, 1.0));  // 銀緯
-    float l = atan(g.y, g.x);               // 銀経（0 = 銀河中心, いて座の方向）
-    float toCenter = cos(l);
-    float width = radians(7.0 + 6.0 * max(toCenter, 0.0));  // 中心方向ほど太い
-    float band = exp(-pow(b / width, 2.0));
-    float along = 0.35 + 0.65 * pow(0.5 + 0.5 * toCenter, 2.0);  // 中心方向ほど明るい
-    float bulge = exp(-(pow(b / radians(9.0), 2.0) + pow(l / radians(16.0), 2.0)));
-    float clouds = mix(0.3, 1.45, fbm(g * 5.0));  // 星雲のむら
-    // 暗黒帯（はくちょう座からいて座にかけての「グレートリフト」）
-    float rift = 1.0 - 0.75 * exp(-pow((b - radians(1.0) - radians(1.5) * sin(l * 2.0)) / radians(2.2), 2.0)) *
-                           smoothstep(radians(110.0), radians(20.0), abs(l)) * smoothstep(0.3, 0.7, fbm(g * 9.0 + 3.0));
-    float v = (band * along + 1.2 * bulge) * clouds * rift;
-    vec3 color = mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.88, 0.70), clamp(bulge * 1.5 + 0.3 * max(toCenter, 0.0), 0.0, 1.0));
-    return color * v;
+    vec2 uv = vec2(fract(atan(j.y, j.x) / 6.28318530718), asin(clamp(j.z, -1.0, 1.0)) / 3.14159265359 + 0.5);
+    return texture(u_milkyWayTex, uv).rgb;
 }
 
 // ---- オーロラ（北の空のカーテン）----

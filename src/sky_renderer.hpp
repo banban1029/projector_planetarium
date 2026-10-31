@@ -72,6 +72,7 @@ private:
     void ensureTargets(int width, int height);
     void setProjectionUniforms(GLuint prog, int width, int height, const ViewSettings& view, int landscape);
     void drawFullscreen(GLuint prog);
+    void bakeMilkyWay(const std::string& shaderDir);
 
     RenderConfig render_;
     std::unique_ptr<TextRenderer> text_;
@@ -83,6 +84,7 @@ private:
     GLuint sceneFbo_ = 0, sceneTex_ = 0, fadeTex_ = 0;
     GLuint outputFbo_ = 0, outputTex_ = 0;  // 仕上げた画像（8bit）。ここから画面へ転送する
     GLuint testPatternProgram_ = 0;
+    GLuint milkyWayTex_ = 0;  // 天の川の全天画像（起動時に一度だけ描く）
     GLuint bloomFbo_[2] = {0, 0}, bloomTex_[2] = {0, 0};
     int targetW_ = 0, targetH_ = 0;
     bool hasFrame_ = false;

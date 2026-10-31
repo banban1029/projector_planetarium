@@ -160,6 +160,27 @@ SkyRenderer::SkyRenderer(const std::string& root, const std::vector<StarVertex>&
     const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     for (const auto& [a, b] : constellations.segments) appendArc(lineVerts, a, b, 0.0f, white, white);
     lines_->setStatic(lineVerts);
+
+    bakeMilkyWay(dir);  // drawFullscreen が使う VAO を作った後で
+}
+
+void SkyRenderer::bakeMilkyWay(const std::string& dir) {
+    // 2048×1024（1 画素 ≒ 0.18°。魚眼の 1 画素 0.22° より細かい）。横方向は繰り返し（赤経 0° と 360° がつながる）
+    constexpr int w = 2048, h = 1024;
+    glCreateTextures(GL_TEXTURE_2D, 1, &milkyWayTex_);
+    glTextureStorage2D(milkyWayTex_, 1, GL_RGBA16F, w, h);
+    glTextureParameteri(milkyWayTex_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(milkyWayTex_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(milkyWayTex_, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(milkyWayTex_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    const GLuint fbo = makeFbo(milkyWayTex_);
+    const GLuint bake = buildProgram(dir + "fullscreen.vert", dir + "milkyway_bake.frag");
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glViewport(0, 0, w, h);
+    drawFullscreen(bake);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDeleteProgram(bake);
+    glDeleteFramebuffers(1, &fbo);
 }
 
 SkyRenderer::~SkyRenderer() {
@@ -169,7 +190,7 @@ SkyRenderer::~SkyRenderer() {
     for (GLuint v : {starVao_, planetVao_, bodyVao_, emptyVao_}) glDeleteVertexArrays(1, &v);
     for (GLuint b : {starVbo_, planetVbo_, bodyVbo_}) glDeleteBuffers(1, &b);
     for (GLuint f : {sceneFbo_, outputFbo_, bloomFbo_[0], bloomFbo_[1]}) glDeleteFramebuffers(1, &f);
-    for (GLuint t : {sceneTex_, fadeTex_, outputTex_, bloomTex_[0], bloomTex_[1]}) glDeleteTextures(1, &t);
+    for (GLuint t : {sceneTex_, fadeTex_, outputTex_, bloomTex_[0], bloomTex_[1], milkyWayTex_}) glDeleteTextures(1, &t);
 }
 
 void SkyRenderer::ensureTargets(int width, int height) {
@@ -264,6 +285,8 @@ void SkyRenderer::render(const FrameInput& in) {
     setUniform(skyProgram_, "u_nebula", st.nebula);
     setUniform(skyProgram_, "u_time", in.timeSec);
     setUniform(skyProgram_, "u_showGrid", in.overlays.grid ? 1 : 0);
+    setUniform(skyProgram_, "u_milkyWayTex", 3);
+    glBindTextureUnit(3, milkyWayTex_);
     drawFullscreen(skyProgram_);
 
     // 2) 星座線
