@@ -11,6 +11,7 @@ struct ProjectorConfig {
     int refresh_rate = 60;
     double throw_ratio = 0.8;
     int monitor_index = 1;
+    std::string monitor_name;  // 名前にこの文字を含むモニタを優先（例 "Optoma"）。差す順番で番号が変わっても困らない
     bool flip_horizontal = false;
     bool flip_vertical = false;
     bool vsync = true;

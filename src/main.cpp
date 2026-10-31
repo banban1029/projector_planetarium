@@ -42,6 +42,9 @@ namespace {
 //   [--test-pattern] [--credits]
 //   [--scenario shows/xxx.yaml]（上映の台本を読む）[--seek 秒]（台本をその時点まで進めてから始める。確認用）
 //   [--dump-narration]（台本の読み上げ文を表示して終了。scripts/make_show_audio.ps1 が使う）
+//   [--list-monitors]（つながっているモニタを表示して終了）
+//   [--output debug|projector] [--monitor 番号|名前]（出力先を設定ファイルより優先して指定）
+//   [--keep-vsync]（--benchmark でも垂直同期を切らない。実際の上映と同じ速度を測る）
 //   [--screenshot out.png|out.ppm [--wait 秒]]（描いて画像を保存し終了。検証・資料用）
 //   [--record 名前 --count N --interval 秒]（連続撮影: 名前_000.png ...。動きの確認用）
 //   [--benchmark 秒]（垂直同期を切って描画速度を測り終了）
@@ -51,7 +54,8 @@ struct Options {
     std::string time, mode, location, screenshot, record, scenario;
     double wait = 0.0, interval = 0.5, benchmark = 0.0, seek = 0.0;
     int count = 8;
-    bool dumpPositions = false, dumpNarration = false;
+    bool dumpPositions = false, dumpNarration = false, listMonitors = false, keepVsync = false;
+    std::string output, monitor;  // --output / --monitor（設定ファイルより優先）
     std::string dumpNames, root;
     bool grid = false, compass = false, constellations = false, constellationNames = false, labels = false;
     bool info = false, play = false, operatorWindow = false, testPattern = false, credits = false;
@@ -75,6 +79,10 @@ Options parseArgs(int argc, char** argv, const std::string& root) {
         else if (a == "--benchmark" && hasValue) o.benchmark = std::stod(argv[++i]);
         else if (a == "--dump-positions") o.dumpPositions = true;
         else if (a == "--dump-narration") o.dumpNarration = true;
+        else if (a == "--list-monitors") o.listMonitors = true;
+        else if (a == "--output" && hasValue) o.output = argv[++i];
+        else if (a == "--monitor" && hasValue) o.monitor = argv[++i];
+        else if (a == "--keep-vsync") o.keepVsync = true;
         else if (a == "--dump-names" && hasValue) o.dumpNames = argv[++i];
         else if (a == "--grid") o.grid = true;
         else if (a == "--compass") o.compass = true;
@@ -207,22 +215,75 @@ ViewSettings viewFromConfig(const Config& cfg) {
 }
 
 // output: projector なら指定モニタにフルスクリーン、debug（または未接続）ならウィンドウ
-GLFWwindow* createOutputWindow(const Config& cfg) {
-    int monitorCount = 0;
-    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
-    for (int i = 0; i < monitorCount; ++i) {
-        const GLFWvidmode* m = glfwGetVideoMode(monitors[i]);
-        std::printf("monitor[%d]: %s %dx%d@%dHz\n", i, glfwGetMonitorName(monitors[i]), m->width,
-                    m->height, m->refreshRate);
+// プロジェクタのモニタを選ぶ: monitor_name を名前に含むもの → monitor_index → 見つからなければ nullptr
+GLFWmonitor* findProjectorMonitor(const ProjectorConfig& pc, int& index) {
+    int count = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&count);
+    if (!pc.monitor_name.empty()) {
+        std::string want = pc.monitor_name;
+        std::transform(want.begin(), want.end(), want.begin(), ::tolower);
+        for (int i = 0; i < count; ++i) {
+            std::string name = glfwGetMonitorName(monitors[i]);
+            std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+            if (name.find(want) != std::string::npos) {
+                index = i;
+                return monitors[i];
+            }
+        }
     }
+    // Windows のドライバによっては名前が "Generic PnP Monitor" になるので、
+    // 次に「主モニタ以外で、今の解像度がプロジェクタの解像度のもの」を探す
+    for (int i = 0; i < count; ++i) {
+        const GLFWvidmode* m = glfwGetVideoMode(monitors[i]);
+        if (monitors[i] != glfwGetPrimaryMonitor() && m->width == pc.width && m->height == pc.height) {
+            index = i;
+            return monitors[i];
+        }
+    }
+    if (pc.monitor_index >= 0 && pc.monitor_index < count && monitors[pc.monitor_index] != glfwGetPrimaryMonitor()) {
+        index = pc.monitor_index;
+        return monitors[index];
+    }
+    return nullptr;
+}
+
+// つながっているモニタを表示する（--list-monitors と起動時のログ）
+void printMonitors(const ProjectorConfig& pc) {
+    int count = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&count);
+    int projector = -1;
+    findProjectorMonitor(pc, projector);
+    for (int i = 0; i < count; ++i) {
+        const GLFWvidmode* m = glfwGetVideoMode(monitors[i]);
+        int x, y, mmW, mmH, modeCount;
+        glfwGetMonitorPos(monitors[i], &x, &y);
+        glfwGetMonitorPhysicalSize(monitors[i], &mmW, &mmH);
+        const GLFWvidmode* modes = glfwGetVideoModes(monitors[i], &modeCount);
+        bool native = false;
+        for (int k = 0; k < modeCount; ++k) native |= modes[k].width == pc.width && modes[k].height == pc.height;
+        std::printf("monitor[%d]: %s %dx%d@%dHz pos %d,%d size %dx%dmm%s%s%s\n", i, glfwGetMonitorName(monitors[i]),
+                    m->width, m->height, m->refreshRate, x, y, mmW, mmH,
+                    monitors[i] == glfwGetPrimaryMonitor() ? " primary" : "", i == projector ? " projector" : "",
+                    native ? " supports-projector-resolution" : "");
+    }
+}
+
+// output: projector ならプロジェクタのモニタにフルスクリーン、debug（または未接続）ならウィンドウ
+GLFWwindow* createOutputWindow(const Config& cfg) {
     const auto& pc = cfg.projector;
+    printMonitors(pc);
     GLFWmonitor* target = nullptr;
     if (cfg.output == "projector") {
-        if (pc.monitor_index < monitorCount) {
-            target = monitors[pc.monitor_index];
+        int index = -1;
+        target = findProjectorMonitor(pc, index);
+        if (target) {
             glfwWindowHint(GLFW_REFRESH_RATE, pc.refresh_rate);
+            // 全画面のウィンドウは、他のウィンドウ（操作パネル）を触ると最小化されるのが既定。上映が消えないように切る
+            glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
+            std::printf("[output] fullscreen on monitor %d (%s) %dx%d@%dHz\n", index, glfwGetMonitorName(target),
+                        pc.width, pc.height, pc.refresh_rate);
         } else {
-            std::printf("monitor_index %d not found, using windowed mode\n", pc.monitor_index);
+            std::printf("[output] projector not found, using windowed mode\n");
         }
     }
     return glfwCreateWindow(pc.width, pc.height, "Projector Planetarium", target, nullptr);
@@ -425,7 +486,17 @@ int main(int argc, char** argv) {
         }
     }
     if (!opts.screenshot.empty() || !opts.record.empty()) cfg.render.dither = false;  // 画像が圧縮しにくくなるので切る
-    if (opts.benchmark > 0.0) cfg.projector.vsync = false;
+    if (opts.benchmark > 0.0 && !opts.keepVsync) cfg.projector.vsync = false;
+    if (!opts.output.empty()) cfg.output = opts.output;
+    if (!opts.monitor.empty()) {
+        // 数字なら番号、それ以外は名前の一部
+        if (opts.monitor.find_first_not_of("0123456789") == std::string::npos) {
+            cfg.projector.monitor_index = std::stoi(opts.monitor);
+            cfg.projector.monitor_name.clear();
+        } else {
+            cfg.projector.monitor_name = opts.monitor;
+        }
+    }
     if (opts.dumpPositions) return dumpPositions(cfg, opts);
 
 #ifdef _WIN32
@@ -436,6 +507,11 @@ int main(int argc, char** argv) {
     if (!glfwInit()) {
         std::fprintf(stderr, "glfwInit failed\n");
         return 1;
+    }
+    if (opts.listMonitors) {
+        printMonitors(cfg.projector);
+        glfwTerminate();
+        return 0;
     }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
@@ -524,7 +600,6 @@ int main(int argc, char** argv) {
     text.build();
 
     installControls(app);
-    updateCursor(app);
 
     // 操作パネル（PC の画面に出す 2 つ目のウィンドウ）
     std::unique_ptr<OperatorWindow> operatorWindow;
@@ -570,7 +645,8 @@ int main(int argc, char** argv) {
     double last = start;
     double lastTitle = -1.0;
     int frame = 0, recorded = 0, fpsFrames = 0;
-    double fpsStart = start, recordStart = -1.0;
+    double fpsStart = start, recordStart = -1.0, benchStart = -1.0;
+    int benchFrames = 0;
     // 操作パネルを閉じても終了する
     while (!glfwWindowShouldClose(window) && !(operatorWindow && glfwWindowShouldClose(operatorWindow->window()))) {
         const double now = glfwGetTime();
@@ -704,10 +780,17 @@ int main(int argc, char** argv) {
             fpsFrames = 0;
             fpsStart = now;
         }
-        if (opts.benchmark > 0.0 && now - start >= opts.benchmark) {
-            const double elapsed = glfwGetTime() - start;
-            std::printf("benchmark: %d frames in %.2f s = %.1f fps (%.2f ms/frame), %dx%d, mode %s\n", frame,
-                        elapsed, frame / elapsed, 1000.0 * elapsed / frame, fbW, fbH, allModes()[app.mode].id);
+        // 最初の 1 秒（全画面への切り替え・文字の準備）は数えず、その後 benchmark 秒を測る
+        if (opts.benchmark > 0.0 && benchStart < 0.0 && now - start >= 1.0) {
+            benchStart = now;
+            benchFrames = 0;
+        }
+        if (benchStart >= 0.0) ++benchFrames;
+        if (opts.benchmark > 0.0 && benchStart >= 0.0 && now - benchStart >= opts.benchmark) {
+            const double elapsed = glfwGetTime() - benchStart;
+            std::printf("benchmark: %d frames in %.2f s = %.1f fps (%.2f ms/frame), %dx%d, mode %s\n", benchFrames,
+                        elapsed, benchFrames / elapsed, 1000.0 * elapsed / benchFrames, fbW, fbH,
+                        allModes()[app.mode].id);
             glfwSetWindowShouldClose(window, 1);
         }
         if (operatorWindow) operatorWindow->present(window);

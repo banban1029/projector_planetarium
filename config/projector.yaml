@@ -1,6 +1,7 @@
 # 出力先
 #   debug     : PC 画面にウィンドウ表示（projector の解像度と同じサイズ）。まずはこちらで正しく表現できるまで開発する
-#   projector : projector.monitor_index のモニタにフルスクリーン出力（未接続ならウィンドウにフォールバック）
+#   projector : プロジェクタ（monitor_name を名前に含むモニタ、無ければ monitor_index）にフルスクリーン出力
+#               見つからなければウィンドウにフォールバック。--output projector で起動時に切り替えもできる
 output: debug
 
 # 操作パネル（PC の画面に出す 2 つ目のウィンドウ。出力のプレビュー・状態・キー一覧）
@@ -15,7 +16,9 @@ projector:
   height: 800
   refresh_rate: 60
   throw_ratio: 0.8       # 投写距離 / 画面幅
-  monitor_index: 1       # 0 = ノートPC本体, 1 = プロジェクタ
+  monitor_name: "Optoma" # 名前にこれを含むモニタを使う。名前が取れない（Generic PnP Monitor）ときは
+                         # 主モニタ以外で width×height のモニタを使う（--list-monitors で確認できる）
+  monitor_index: 1       # monitor_name で見つからないときの番号（0 = ノートPC本体, 1 = プロジェクタ）
   flip_horizontal: false # リア投影時に true
   flip_vertical: false   # 天吊り / 天井投影の向き調整
   vsync: true

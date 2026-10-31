@@ -12,7 +12,7 @@
 |---|---|
 | `output` | `debug`（PC 画面にウィンドウ）/ `projector`（プロジェクタにフルスクリーン） |
 | `operator_window` | 操作パネル（PC の画面の 2 つ目のウィンドウ）：`auto`（projector のときだけ）/ `on` / `off` |
-| `projector` | プロジェクタの解像度（ML1050ST+ は 1280×800）、出力先モニタ番号、左右・上下反転、垂直同期 |
+| `projector` | プロジェクタの解像度（ML1050ST+ は 1280×800）、出力先モニタ（`monitor_name` を名前に含むもの → 主モニタ以外で同じ解像度のもの → `monitor_index`）、左右・上下反転、垂直同期 |
 | `projection` | 投影方式（`fisheye` 天井向け / `perspective` 壁向け）、画角、視線の方向、回転 |
 | `location` | 起動時の観測地の `id` |
 | `locations` | 観測地の一覧。`id`・名前・緯度・経度・標高・タイムゾーン・`limiting_magnitude`（その場所の夜空で見える最暗等級＝光害の程度）・`landscape`（地平線の景色 `city` / `mountains` / `none`）。`L` キーで順に切り替える |

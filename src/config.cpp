@@ -93,6 +93,7 @@ Config loadConfig(const std::string& path) {
         read(p, "refresh_rate", c.refresh_rate);
         read(p, "throw_ratio", c.throw_ratio);
         read(p, "monitor_index", c.monitor_index);
+        read(p, "monitor_name", c.monitor_name);
         read(p, "flip_horizontal", c.flip_horizontal);
         read(p, "flip_vertical", c.flip_vertical);
         read(p, "vsync", c.vsync);
