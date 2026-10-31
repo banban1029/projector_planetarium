@@ -14,12 +14,13 @@
 | `projector` | プロジェクタの解像度（ML1050ST+ は 1280×800）、出力先モニタ番号、左右・上下反転、垂直同期 |
 | `projection` | 投影方式（`fisheye` 天井向け / `perspective` 壁向け）、画角、視線の方向、回転 |
 | `location` | 起動時の観測地の `id` |
-| `locations` | 観測地の一覧。`id`・名前・緯度・経度・標高・タイムゾーン・`limiting_magnitude`（その場所の夜空で見える最暗等級＝光害の程度）。`L` キーで順に切り替える |
+| `locations` | 観測地の一覧。`id`・名前・緯度・経度・標高・タイムゾーン・`limiting_magnitude`（その場所の夜空で見える最暗等級＝光害の程度）・`landscape`（地平線の景色 `city` / `mountains` / `none`）。`L` キーで順に切り替える |
 | `time` | 起動時の日時（`"now"` または `"2026-12-15 22:00"`）、時間倍率とその段階 |
 | `seasons` | 季節プリセット（名前・月日・時刻）。並び順 = `S` キーで巡回する順 |
 | `season_tour` | 季節の自動巡回（`T` キー）の ON/OFF と間隔 |
 | `mode` | 起動時の表示モード（`real`, `aurora`, `nebula`, …） |
-| `render` | 星の明るさ・大きさ、限界等級、大気減光、露出・ガンマ、グリッド・方位表示 |
+| `render` | 星の明るさ・大きさ、限界等級、大気減光、月の大きさ（`moon_scale`）、光のにじみ（`bloom`）、露出・ガンマ、フォント、起動時の補助表示（グリッド・方位・星座線・名前・画面表示） |
+| `scenario` | 上映用の場面の並び（`P` キーで再生）。下の「シナリオを書く」 |
 
 各項目の意味と既定値は YAML 内のコメントを参照。読み込み処理は [src/config.cpp](../src/config.cpp)。
 
@@ -53,7 +54,28 @@ locations:
     limiting_magnitude: 3.0
 ```
 
-`limiting_magnitude` の目安：都心 2〜3、郊外の市街地 4、田舎 5〜6、星空で有名な場所 6.5（星表に入っているのは 6.5 等まで）。
+`limiting_magnitude` は見える星の数だけでなく、光害の明るみ（オレンジ色の地平線）と天の川の濃さも決める。目安：都心 2〜3、郊外の市街地 4、田舎 5〜6、星空で有名な場所 6.5（星表に入っているのは 6.5 等まで）。
+
+## シナリオを書く
+
+`scenario.steps` に場面を並べる。各場面は `duration_sec` 秒続き、**書いた項目だけ**を変える（書かない項目は前の場面のまま）。
+
+```yaml
+scenario:
+  loop: true                 # 最後まで行ったら最初に戻る
+  steps:
+    - { duration_sec: 20, location: achi, time: "2026-12-15 16:30", speed: 600, mode: real, message: "阿智村の冬の夕暮れ" }
+    - { duration_sec: 20, speed: 60, constellations: true, labels: true, message: "冬の星座" }
+```
+
+| 項目 | 意味 |
+|---|---|
+| `duration_sec` | この場面を見せる実時間 [秒] |
+| `location` / `time` / `speed` / `mode` | 観測地の id / 日時（地方時）/ 時間倍率 / モードの id |
+| `constellations` / `labels` | 星座線 / 名前の表示（true / false） |
+| `message` | 右下に 3 秒出す文字 |
+
+場面が変わるたびに 1 秒かけてフェードする。`P` キーで再生・停止、`--play` で起動と同時に再生。
 
 よくある変更：
 

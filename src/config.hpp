@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 
+#include "scenario.hpp"
+
 struct ProjectorConfig {
     std::string name;
     int width = 1280;
@@ -32,6 +34,13 @@ struct RenderConfig {
     double gamma = 2.2;
     bool show_grid = false;
     bool show_compass = false;
+    bool show_constellations = false;
+    bool show_labels = false;
+    bool show_info = false;
+    double moon_scale = 5.0;   // 月・太陽を実際の何倍の大きさで描くか（実寸だと魚眼で直径 2px）
+    double bloom = 1.0;        // 光のにじみの強さの倍率（モードの値に掛ける）
+    bool dither = true;        // 暗いグラデーションの縞を防ぐノイズ（スクリーンショットでは切る）
+    std::string font;          // 日本語フォント（空なら Windows の標準フォントを順に探す）
 };
 
 // 観測地。YAML の locations に並べ、L キーで切り替える
@@ -43,6 +52,7 @@ struct ObserverConfig {
     double elevation_m = 0.0;
     double timezone_hours = 9.0;
     double limiting_magnitude = -1.0;  // その場所の夜空の最暗等級（光害）。負なら render.limiting_magnitude
+    std::string landscape = "none";    // 地平線の景色: none | mountains | city
 };
 
 struct TimeConfig {
@@ -76,6 +86,7 @@ struct Config {
     std::vector<SeasonPreset> seasons;
     SeasonTourConfig season_tour;
     std::string mode = "real";
+    Scenario scenario;
 };
 
 // YAML から設定を読み込む。失敗時は std::runtime_error を投げる。

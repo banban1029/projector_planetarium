@@ -64,6 +64,13 @@ Config loadConfig(const std::string& path) {
         read(r, "gamma", c.gamma);
         read(r, "show_grid", c.show_grid);
         read(r, "show_compass", c.show_compass);
+        read(r, "show_constellations", c.show_constellations);
+        read(r, "show_labels", c.show_labels);
+        read(r, "show_info", c.show_info);
+        read(r, "moon_scale", c.moon_scale);
+        read(r, "bloom", c.bloom);
+        read(r, "dither", c.dither);
+        read(r, "font", c.font);
     }
     if (auto list = root["locations"]) {
         for (const auto& o : list) {
@@ -75,6 +82,7 @@ Config loadConfig(const std::string& path) {
             read(o, "elevation_m", c.elevation_m);
             read(o, "timezone_hours", c.timezone_hours);
             read(o, "limiting_magnitude", c.limiting_magnitude);
+            read(o, "landscape", c.landscape);
             if (c.id.empty()) throw std::runtime_error("every entry in locations needs an id");
             cfg.locations.push_back(c);
         }
@@ -93,6 +101,21 @@ Config loadConfig(const std::string& path) {
         read(t, "interval_sec", cfg.season_tour.interval_sec);
     }
     read(root, "mode", cfg.mode);
+    if (auto s = root["scenario"]) {
+        read(s, "loop", cfg.scenario.loop);
+        for (const auto& n : s["steps"]) {
+            ScenarioStep st;
+            read(n, "duration_sec", st.duration_sec);
+            read(n, "location", st.location);
+            read(n, "time", st.time);
+            read(n, "speed", st.speed);
+            read(n, "mode", st.mode);
+            read(n, "message", st.message);
+            if (n["constellations"]) st.constellations = n["constellations"].as<bool>() ? 1 : 0;
+            if (n["labels"]) st.labels = n["labels"].as<bool>() ? 1 : 0;
+            cfg.scenario.steps.push_back(st);
+        }
+    }
 
     if (cfg.output != "debug" && cfg.output != "projector") {
         throw std::runtime_error("output must be 'debug' or 'projector': " + cfg.output);

@@ -35,6 +35,7 @@ locations:
     elevation_m: 50
     timezone_hours: 9          # JST
     limiting_magnitude: 4.0    # 街明かりで暗い星は見えない（郊外の都市の空）
+    landscape: city            # 地平線の景色: none | mountains | city
 
   - id: achi
     name: "長野県 阿智村（ヘブンスそのはら）"
@@ -43,6 +44,7 @@ locations:
     elevation_m: 1400
     timezone_hours: 9
     limiting_magnitude: 6.5    # 「日本一の星空」。肉眼の限界まで見える
+    landscape: mountains
 
 # 時間
 time:
@@ -78,5 +80,27 @@ render:
   extinction: 0.25            # 大気減光係数 [等級/エアマス]（リアルモードのみ）。0 で無効
   exposure: 1.0               # 全体の露出
   gamma: 2.2                  # 出力ガンマ（プロジェクタに合わせて調整）
-  show_grid: false            # 高度・方位グリッド（G キーでも切替）
-  show_compass: false         # 方位の文字 N/E/S/W（C キーでも切替）
+  moon_scale: 5.0             # 月・太陽を実際の何倍の大きさで描くか（実寸だと魚眼で直径 2px）
+  bloom: 1.0                  # 光のにじみの強さ（モードごとの値に掛ける）。0 で無効
+  font: ""                    # 日本語フォントのファイル。空なら BIZ UDゴシック → 游ゴシック → メイリオ の順に探す
+  # 起動時の補助表示（キーでも切替）
+  show_grid: false            # 高度・方位グリッド（G）
+  show_compass: false         # 方位 北/東/南/西（C）
+  show_constellations: false  # 星座線（K）
+  show_labels: false          # 星・惑星・星座の名前（J）
+  show_info: false            # 画面左下の日時・観測地・モード（I）
+
+# シナリオ（P キーで再生 / 停止、--play で起動時に再生）
+# 各場面は duration_sec 秒続き、書いた項目だけを変える
+scenario:
+  loop: true
+  steps:
+    - { duration_sec: 20, location: achi, time: "2026-12-15 16:30", speed: 600, mode: real,
+        constellations: false, labels: false, message: "阿智村の冬の夕暮れ" }
+    - { duration_sec: 20, speed: 60, constellations: true, labels: true, message: "冬の星座" }
+    - { duration_sec: 15, mode: jewel, labels: false, constellations: false, message: "宝石箱" }
+    - { duration_sec: 20, location: osaka, time: "2027-08-10 20:30", speed: 300, mode: real,
+        message: "大阪の夏の空" }
+    - { duration_sec: 20, location: achi, mode: milkyway, message: "阿智村の天の川" }
+    - { duration_sec: 15, mode: meteor, speed: 60, message: "流星群" }
+    - { duration_sec: 15, mode: aurora, message: "オーロラ" }
