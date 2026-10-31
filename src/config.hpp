@@ -93,3 +93,5 @@ struct Config {
 
 // YAML から設定を読み込む。失敗時は std::runtime_error を投げる。
 Config loadConfig(const std::string& path);
+// シナリオだけを書いた YAML（shows/*.yaml）を読む
+Scenario loadScenario(const std::string& path);

@@ -1,5 +1,11 @@
 #include "scenario.hpp"
 
+std::string narrationText(const ScenarioStep& step) {
+    std::string text = step.narration.empty() ? step.subtitle : step.narration;
+    for (auto p = text.find('\n'); p != std::string::npos; p = text.find('\n')) text.erase(p, 1);
+    return text;
+}
+
 const ScenarioStep* ScenarioPlayer::start() {
     if (scenario_.steps.empty()) return nullptr;
     playing_ = true;

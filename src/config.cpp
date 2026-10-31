@@ -21,7 +21,58 @@ SeasonPreset parseSeason(const YAML::Node& n) {
     }
     return s;
 }
+Scenario parseScenario(const YAML::Node& node) {
+    Scenario sc;
+    read(node, "loop", sc.loop);
+    read(node, "title", sc.title);
+    read(node, "date", sc.date);
+    read(node, "location", sc.location);
+    if (auto a = node["audio"]) {
+        read(a, "narration_dir", sc.audio.narrationDir);
+        read(a, "voice", sc.audio.voice);
+        read(a, "rate", sc.audio.rate);
+        read(a, "bgm", sc.audio.bgm);
+        read(a, "bgm_volume", sc.audio.bgmVolume);
+    }
+    for (const auto& n : node["steps"]) {
+        ScenarioStep st;
+        read(n, "duration_sec", st.duration_sec);
+        read(n, "location", st.location);
+        read(n, "time", st.time);
+        read(n, "speed", st.speed);
+        read(n, "mode", st.mode);
+        read(n, "message", st.message);
+        if (n["constellations"]) st.constellations = n["constellations"].as<bool>() ? 1 : 0;
+        if (n["labels"]) st.labels = n["labels"].as<bool>() ? 1 : 0;
+        if (n["constellation_names"]) st.constellationNames = n["constellation_names"].as<bool>() ? 1 : 0;
+        if (n["credits"]) st.credits = n["credits"].as<bool>() ? 1 : 0;
+        read(n, "subtitle", st.subtitle);
+        read(n, "narration", st.narration);
+        read(n, "asterisms", st.asterisms);
+        read(n, "point", st.point);
+        read(n, "fade_sec", st.fadeSec);
+        read(n, "eye_adapt_sec", st.eyeAdaptSec);
+        read(n, "meteor_rate", st.meteorRate);
+        read(n, "meteor_radiant", st.meteorRadiant);
+        if (!st.meteorRadiant.empty() && st.meteorRadiant.size() != 2) {
+            throw std::runtime_error("meteor_radiant must be [ra_deg, dec_deg]");
+        }
+        sc.steps.push_back(st);
+    }
+    return sc;
+}
 }  // namespace
+
+Scenario loadScenario(const std::string& path) {
+    YAML::Node root;
+    try {
+        root = YAML::LoadFile(path);
+    } catch (const YAML::Exception& e) {
+        throw std::runtime_error("failed to load " + path + ": " + e.what());
+    }
+    if (!root["scenario"]) throw std::runtime_error(path + ": no scenario section");
+    return parseScenario(root["scenario"]);
+}
 
 Config loadConfig(const std::string& path) {
     YAML::Node root;
@@ -103,22 +154,7 @@ Config loadConfig(const std::string& path) {
         read(t, "interval_sec", cfg.season_tour.interval_sec);
     }
     read(root, "mode", cfg.mode);
-    if (auto s = root["scenario"]) {
-        read(s, "loop", cfg.scenario.loop);
-        for (const auto& n : s["steps"]) {
-            ScenarioStep st;
-            read(n, "duration_sec", st.duration_sec);
-            read(n, "location", st.location);
-            read(n, "time", st.time);
-            read(n, "speed", st.speed);
-            read(n, "mode", st.mode);
-            read(n, "message", st.message);
-            if (n["constellations"]) st.constellations = n["constellations"].as<bool>() ? 1 : 0;
-            if (n["labels"]) st.labels = n["labels"].as<bool>() ? 1 : 0;
-            if (n["constellation_names"]) st.constellationNames = n["constellation_names"].as<bool>() ? 1 : 0;
-            cfg.scenario.steps.push_back(st);
-        }
-    }
+    if (auto s = root["scenario"]) cfg.scenario = parseScenario(s);
 
     if (cfg.output != "debug" && cfg.output != "projector") {
         throw std::runtime_error("output must be 'debug' or 'projector': " + cfg.output);
