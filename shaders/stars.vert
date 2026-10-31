@@ -42,6 +42,10 @@ void main() {
     }
     float l = length(h.xy);
     h = vec3((l > 1e-7 ? h.xy / l : vec2(1.0, 0.0)) * cos(radians(alt)), sin(radians(alt)));
+    if (!aboveGround(h, 0.0)) {  // 山や建物に隠れる
+        hide();
+        return;
+    }
 
     // 大気減光: エアマス（Kasten & Young 1989）に比例して暗くなる。天頂を基準にする
     float airmass = 1.0 / (sin(radians(alt)) + 0.50572 * pow(alt + 6.07995, -1.6364));

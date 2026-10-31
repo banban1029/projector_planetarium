@@ -35,16 +35,20 @@ GLuint compile(GLenum type, const std::string& path, const std::string& common) 
 }
 }  // namespace
 
-GLuint buildProgram(const std::string& vertPath, const std::string& fragPath, const std::string& commonPath) {
+GLuint buildProgram(const std::string& vertPath, const std::string& fragPath, const std::string& commonPath,
+                    const std::string& geomPath) {
     const std::string common = commonPath.empty() ? "" : readTextFile(commonPath);
     const GLuint vs = compile(GL_VERTEX_SHADER, vertPath, common);
     const GLuint fs = compile(GL_FRAGMENT_SHADER, fragPath, common);
+    const GLuint gs = geomPath.empty() ? 0 : compile(GL_GEOMETRY_SHADER, geomPath, "");
     const GLuint prog = glCreateProgram();
     glAttachShader(prog, vs);
     glAttachShader(prog, fs);
+    if (gs) glAttachShader(prog, gs);
     glLinkProgram(prog);
     glDeleteShader(vs);
     glDeleteShader(fs);
+    if (gs) glDeleteShader(gs);
     GLint ok = 0;
     glGetProgramiv(prog, GL_LINK_STATUS, &ok);
     if (!ok) {
