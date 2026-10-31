@@ -1,0 +1,5 @@
+build/
+.cache/
+*.exe
+# 大きいカタログは scripts/ から取得する
+data/raw/
