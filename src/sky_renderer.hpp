@@ -23,6 +23,7 @@ struct SkyState {
     double nightMagLimit;    // 観測地の夜空の最暗等級（リアルモード）
     double moonAltDeg;
     double moonPhaseFraction;
+    double eyeLimit = 99.0;  // 目が暗さに慣れる途中の最暗等級（上映の演出。99 = 制限なし）
 };
 
 // 星空に重ねる補助表示（キーで ON/OFF）

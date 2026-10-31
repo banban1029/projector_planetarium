@@ -235,6 +235,7 @@ void SkyRenderer::render(const FrameInput& in) {
     SkyLight light = st.realisticSky ? skyLightForSun(sky.sunAltDeg, sky.nightMagLimit)
                                      : skyLightForSun(-90.0, render_.limiting_magnitude);
     if (st.realisticSky) addMoonlight(light, sky.moonAltDeg, sky.moonPhaseFraction);
+    light.magLimit = std::min(light.magLimit, static_cast<float>(sky.eyeLimit));
     const float lightPollution =
         st.realisticSky ? std::clamp(static_cast<float>(6.5 - sky.nightMagLimit) / 3.0f, 0.0f, 1.0f) : 0.0f;
     // 天の川は空が暗い（限界等級 4〜6.5 等）ほど見える
@@ -320,6 +321,7 @@ void SkyRenderer::render(const FrameInput& in) {
         }
     }
     if (!planets.empty()) {
+        setUniform(starProgram_, "u_twinkle", st.twinkle * 0.15f);  // 惑星は面積があるので恒星ほどまたたかない
         glNamedBufferData(planetVbo_, static_cast<GLsizeiptr>(planets.size() * sizeof(StarVertex)), planets.data(),
                           GL_STREAM_DRAW);
         glBindVertexArray(planetVao_);
