@@ -13,11 +13,15 @@ find_package(yaml-cpp REQUIRED)
 
 add_executable(planetarium
     src/main.cpp
+    src/astro.cpp
     src/config.cpp
     src/controls.cpp
+    src/gl_util.cpp
     src/modes.cpp
     src/seasons.cpp
     src/sim_clock.cpp
+    src/sky_renderer.cpp
+    src/star_catalog.cpp
 )
 target_include_directories(planetarium PRIVATE src)
 target_link_libraries(planetarium PRIVATE
@@ -31,3 +35,9 @@ if(MSVC)
 else()
     target_compile_options(planetarium PRIVATE -Wall -Wextra)
 endif()
+
+# 天文計算のテスト: ctest --preset mingw-debug
+enable_testing()
+add_executable(astro_test tests/astro_test.cpp src/astro.cpp)
+target_include_directories(astro_test PRIVATE src)
+add_test(NAME astro COMMAND astro_test)

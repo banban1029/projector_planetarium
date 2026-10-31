@@ -13,6 +13,21 @@ void selectMode(AppState& app, size_t index) {
     std::printf("[mode] %zu: %s\n", app.mode, modes[app.mode].name);
 }
 
+// 魚眼（天頂中心・全天）<-> 透視（南の空・画角 90°）。デバッグ用
+void toggleProjection(AppState& app) {
+    auto& v = app.view;
+    v.fisheye = !v.fisheye;
+    if (v.fisheye) {
+        v.fovDeg = 180.0;
+        v.centerAltDeg = 90.0;
+    } else {
+        v.fovDeg = 90.0;
+        v.centerAltDeg = 30.0;
+    }
+    v.centerAzDeg = 180.0;
+    std::printf("[view] %s\n", v.fisheye ? "fisheye (zenith)" : "perspective (south)");
+}
+
 void toggleFullscreen(AppState& app) {
     GLFWwindow* w = app.window;
     if (glfwGetWindowMonitor(w)) {
@@ -62,6 +77,15 @@ void onKey(GLFWwindow* window, int key, int /*scancode*/, int action, int mods) 
             app.clock.resetRate();
             std::printf("[time] now, x1\n");
             break;
+        case GLFW_KEY_G:
+            app.overlays.grid = !app.overlays.grid;
+            std::printf("[view] grid %s\n", app.overlays.grid ? "ON" : "OFF");
+            break;
+        case GLFW_KEY_C:
+            app.overlays.compass = !app.overlays.compass;
+            std::printf("[view] compass (N/E/S/W) %s\n", app.overlays.compass ? "ON" : "OFF");
+            break;
+        case GLFW_KEY_V: toggleProjection(app); break;
         case GLFW_KEY_F11: toggleFullscreen(app); break;
         case GLFW_KEY_H: printHelp(); break;
         default: break;
@@ -88,6 +112,9 @@ void printHelp() {
         "  R           reverse time\n"
         "  Left/Right  -/+ 1 hour (Shift: 1 day)\n"
         "  N           back to now, x1\n"
+        "  C           compass N/E/S/W on/off\n"
+        "  G           alt/az grid on/off\n"
+        "  V           fisheye / perspective\n"
         "  F11         fullscreen\n"
         "  H           help, Esc quit\n");
 }
@@ -97,9 +124,9 @@ std::string statusLine(const AppState& app) {
     const char* state = app.clock.paused() ? "||" : (app.clock.reversed() ? "<<" : ">>");
     const std::string season = app.seasons.currentName();
     char buf[320];
-    std::snprintf(buf, sizeof(buf), "[%s] %s  %s x%g%s%s%s  |  現在 %s", mode.name,
+    std::snprintf(buf, sizeof(buf), "[%s] %s  %s x%g%s%s%s  太陽高度 %+.0f°  |  現在 %s", mode.name,
                   app.clock.formatLocal().c_str(), state, app.clock.speed(),
                   season.empty() ? "" : "  季節: ", season.c_str(),
-                  app.seasons.touring() ? " (巡回中)" : "", app.clock.formatRealNow().c_str());
+                  app.seasons.touring() ? " (巡回中)" : "", app.sunAltDeg, app.clock.formatRealNow().c_str());
     return buf;
 }

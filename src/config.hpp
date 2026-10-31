@@ -14,6 +14,26 @@ struct ProjectorConfig {
     bool vsync = true;
 };
 
+struct ProjectionConfig {
+    std::string type = "fisheye";  // fisheye | perspective
+    double fov_deg = 180.0;
+    double center_alt_deg = 90.0;
+    double center_az_deg = 180.0;
+    double rotation_deg = 0.0;
+};
+
+struct RenderConfig {
+    double limiting_magnitude = 6.0;
+    double saturation_magnitude = 3.0;  // これより明るい星は大きさで明るさを表す
+    double star_size = 0.8;             // 星像の σ [px]（高さ 800px 基準）
+    double brightness = 1.0;
+    double extinction = 0.25;           // 大気減光係数 [mag / エアマス]
+    double exposure = 1.0;
+    double gamma = 2.2;
+    bool show_grid = false;
+    bool show_compass = false;
+};
+
 struct ObserverConfig {
     std::string name;
     double latitude_deg = 34.82;
@@ -45,6 +65,8 @@ struct SeasonTourConfig {
 struct Config {
     std::string output = "debug";  // debug | projector
     ProjectorConfig projector;
+    ProjectionConfig projection;
+    RenderConfig render;
     ObserverConfig observer;
     TimeConfig time;
     std::vector<SeasonPreset> seasons;

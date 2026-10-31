@@ -22,8 +22,7 @@ projection:
   fov_deg: 180           # fisheye: 地平線まで = 180
   center_alt_deg: 90     # 視線方向の高度（90 = 天頂）
   center_az_deg: 180     # 視線方向の方位（0 = 北, 180 = 南）
-  rotation_deg: 0        # 映像全体の回転（設置向きの補正）
-  circle_mask: true      # fisheye 円外を黒でマスク
+  rotation_deg: 0        # 映像全体の回転（設置向きの補正）。fisheye は円の外が黒になる
 
 # 観測地
 observer:
@@ -58,11 +57,14 @@ season_tour:
 #   real | aurora | nebula | meteor | constellation | jewel | warp | milkyway | mirror
 mode: real
 
+# 星の描画（詳細は docs/rendering.md）
 render:
-  limiting_magnitude: 6.0   # 表示する最暗等級
-  star_size_scale: 1.0
-  show_constellation_lines: false
-  show_planets: true
-  show_milky_way: true
-  show_horizon: true
-  gamma: 2.2
+  limiting_magnitude: 6.0     # 夜空で表示する最暗等級（data/stars.csv は 6.5 等まで）。薄明中は自動で下がる
+  saturation_magnitude: 3.0   # これより明るい星は芯が飽和し、星像の大きさで明るさを表す
+  star_size: 0.8              # 暗い星の星像の大きさ（ガウスの σ, 高さ 800px 基準の px）
+  brightness: 1.0             # 星の明るさの倍率
+  extinction: 0.25            # 大気減光係数 [等級/エアマス]（リアルモードのみ）。0 で無効
+  exposure: 1.0               # 全体の露出
+  gamma: 2.2                  # 出力ガンマ（プロジェクタに合わせて調整）
+  show_grid: false            # 高度・方位グリッド（G キーでも切替）
+  show_compass: false         # 方位の文字 N/E/S/W（C キーでも切替）

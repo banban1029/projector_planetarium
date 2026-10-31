@@ -45,6 +45,26 @@ Config loadConfig(const std::string& path) {
         read(p, "flip_vertical", c.flip_vertical);
         read(p, "vsync", c.vsync);
     }
+    if (auto p = root["projection"]) {
+        auto& c = cfg.projection;
+        read(p, "type", c.type);
+        read(p, "fov_deg", c.fov_deg);
+        read(p, "center_alt_deg", c.center_alt_deg);
+        read(p, "center_az_deg", c.center_az_deg);
+        read(p, "rotation_deg", c.rotation_deg);
+    }
+    if (auto r = root["render"]) {
+        auto& c = cfg.render;
+        read(r, "limiting_magnitude", c.limiting_magnitude);
+        read(r, "saturation_magnitude", c.saturation_magnitude);
+        read(r, "star_size", c.star_size);
+        read(r, "brightness", c.brightness);
+        read(r, "extinction", c.extinction);
+        read(r, "exposure", c.exposure);
+        read(r, "gamma", c.gamma);
+        read(r, "show_grid", c.show_grid);
+        read(r, "show_compass", c.show_compass);
+    }
     if (auto o = root["observer"]) {
         auto& c = cfg.observer;
         read(o, "name", c.name);
@@ -69,6 +89,9 @@ Config loadConfig(const std::string& path) {
 
     if (cfg.output != "debug" && cfg.output != "projector") {
         throw std::runtime_error("output must be 'debug' or 'projector': " + cfg.output);
+    }
+    if (cfg.projection.type != "fisheye" && cfg.projection.type != "perspective") {
+        throw std::runtime_error("projection.type must be 'fisheye' or 'perspective': " + cfg.projection.type);
     }
     if (cfg.time.speed_steps.empty()) throw std::runtime_error("time.speed_steps is empty");
     return cfg;
