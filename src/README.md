@@ -11,6 +11,7 @@ OpenGL を使わない部分は `planetarium_core`（静的ライブラリ）に
 |---|---|
 | [main.cpp](main.cpp) | 起動・メインループ。設定・星表・星座を読み、毎フレーム「時刻を進める → 天文計算 → 演出と文字を積む → 描画」。コマンドラインオプション、スクリーンショット・連続撮影、描画速度の計測、天体位置の出力 |
 | [controls.hpp](controls.hpp) / [controls.cpp](controls.cpp) | キーボード操作（`handleKey()`。テストからも呼ぶ）、アプリの状態（`AppState`）、通知（右下）、画面表示（左下）、ウィンドウタイトル、シナリオの場面の反映 |
+| [operator_window.hpp](operator_window.hpp) / [operator_window.cpp](operator_window.cpp) | 操作パネル（2 つ目のウィンドウ）。出力テクスチャのプレビューと状態・キー一覧 |
 | [paths.hpp](paths.hpp) / [paths.cpp](paths.cpp) | シェーダ・データの置き場所を探す（環境変数 → 実行ファイルの隣 → ソースフォルダ） |
 
 ### planetarium_core（OpenGL を使わない）

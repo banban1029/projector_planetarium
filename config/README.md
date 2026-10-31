@@ -11,6 +11,7 @@
 | セクション | 内容 |
 |---|---|
 | `output` | `debug`（PC 画面にウィンドウ）/ `projector`（プロジェクタにフルスクリーン） |
+| `operator_window` | 操作パネル（PC の画面の 2 つ目のウィンドウ）：`auto`（projector のときだけ）/ `on` / `off` |
 | `projector` | プロジェクタの解像度（ML1050ST+ は 1280×800）、出力先モニタ番号、左右・上下反転、垂直同期 |
 | `projection` | 投影方式（`fisheye` 天井向け / `perspective` 壁向け）、画角、視線の方向、回転 |
 | `location` | 起動時の観測地の `id` |
@@ -72,7 +73,7 @@ scenario:
 |---|---|
 | `duration_sec` | この場面を見せる実時間 [秒] |
 | `location` / `time` / `speed` / `mode` | 観測地の id / 日時（地方時）/ 時間倍率 / モードの id |
-| `constellations` / `labels` | 星座線 / 名前の表示（true / false） |
+| `constellations` / `constellation_names` / `labels` | 星座線 / 星座名 / 星・惑星の名前の表示（true / false） |
 | `message` | 右下に 3 秒出す文字 |
 
 場面が変わるたびに 1 秒かけてフェードする。`P` キーで再生・停止、`--play` で起動と同時に再生。

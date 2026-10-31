@@ -13,7 +13,10 @@ GLSL 4.50 のシェーダ。実行時に読み込むので、**シェーダだ�
 | ④ 月・太陽 | [body.vert](body.vert) | | [body.frag](body.frag) | 円盤・満ち欠け・海の模様・にじみ |
 | ⑤ 文字 | [text.vert](text.vert) | | [text.frag](text.frag) | 名前・方位・画面表示 |
 | ⑥ ブルーム | [fullscreen.vert](fullscreen.vert) | | [bloom.frag](bloom.frag) | 明るい部分の抽出とガウスぼかし |
-| ⑦ 出力 | [fullscreen.vert](fullscreen.vert) | | [post.frag](post.frag) | 水鏡の映り込み、にじみ、フェード、露出・ガンマ・ディザ → 画面 |
+| ⑦ 仕上げ | [fullscreen.vert](fullscreen.vert) | | [post.frag](post.frag) | 水鏡の映り込み、にじみ、フェード、露出・ガンマ・ディザ → 出力テクスチャ（8bit） |
+| ⑧ 重ねる文字 | [text.vert](text.vert) | | [text.frag](text.frag) | 画面表示・通知・クレジット（仕上げの影響を受けない） |
+| ⑨ テストパターン | [fullscreen.vert](fullscreen.vert) | | [testpattern.frag](testpattern.frag) | X キー。出力の値をそのまま出す調整用の模様 |
+| ⑩ 操作パネル | [fullscreen.vert](fullscreen.vert) | | [preview.frag](preview.frag) | 出力テクスチャを操作パネルに縮小表示 |
 
 ①〜⑤は 16bit 浮動小数（線形）のバッファに描き、⑦で画面に出す。
 
