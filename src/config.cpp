@@ -33,6 +33,7 @@ Config loadConfig(const std::string& path) {
 
     Config cfg;
     read(root, "output", cfg.output);
+    read(root, "operator_window", cfg.operator_window);
     if (auto p = root["projector"]) {
         auto& c = cfg.projector;
         read(p, "name", c.name);
@@ -65,6 +66,7 @@ Config loadConfig(const std::string& path) {
         read(r, "show_grid", c.show_grid);
         read(r, "show_compass", c.show_compass);
         read(r, "show_constellations", c.show_constellations);
+        read(r, "show_constellation_names", c.show_constellation_names);
         read(r, "show_labels", c.show_labels);
         read(r, "show_info", c.show_info);
         read(r, "moon_scale", c.moon_scale);
@@ -113,6 +115,7 @@ Config loadConfig(const std::string& path) {
             read(n, "message", st.message);
             if (n["constellations"]) st.constellations = n["constellations"].as<bool>() ? 1 : 0;
             if (n["labels"]) st.labels = n["labels"].as<bool>() ? 1 : 0;
+            if (n["constellation_names"]) st.constellationNames = n["constellation_names"].as<bool>() ? 1 : 0;
             cfg.scenario.steps.push_back(st);
         }
     }

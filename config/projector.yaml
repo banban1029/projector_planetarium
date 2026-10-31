@@ -3,6 +3,10 @@
 #   projector : projector.monitor_index のモニタにフルスクリーン出力（未接続ならウィンドウにフォールバック）
 output: debug
 
+# 操作パネル（PC の画面に出す 2 つ目のウィンドウ。出力のプレビュー・状態・キー一覧）
+#   auto: output が projector のときだけ出す / on: いつも出す / off: 出さない
+operator_window: auto
+
 # プロジェクタ / 表示設定
 # Optoma ML1050ST+ : DLP 0.45" DMD, ネイティブ WXGA 1280x800 (16:10), 投写比 0.8:1, 1000 lm
 projector:
@@ -86,8 +90,9 @@ render:
   # 起動時の補助表示（キーでも切替）
   show_grid: false            # 高度・方位グリッド（G）
   show_compass: false         # 方位 北/東/南/西（C）
-  show_constellations: false  # 星座線（K）
-  show_labels: false          # 星・惑星・星座の名前（J）
+  show_constellations: false       # 星座線（K）
+  show_constellation_names: false  # 星座名（K を 2 回）
+  show_labels: false               # 星・惑星・月の名前（J）
   show_info: false            # 画面左下の日時・観測地・モード（I）
 
 # シナリオ（P キーで再生 / 停止、--play で起動時に再生）
@@ -96,9 +101,11 @@ scenario:
   loop: true
   steps:
     - { duration_sec: 20, location: achi, time: "2026-12-15 16:30", speed: 600, mode: real,
-        constellations: false, labels: false, message: "阿智村の冬の夕暮れ" }
-    - { duration_sec: 20, speed: 60, constellations: true, labels: true, message: "冬の星座" }
-    - { duration_sec: 15, mode: jewel, labels: false, constellations: false, message: "宝石箱" }
+        constellations: false, constellation_names: false, labels: false, message: "阿智村の冬の夕暮れ" }
+    - { duration_sec: 20, speed: 60, constellations: true, constellation_names: true, labels: true,
+        message: "冬の星座" }
+    - { duration_sec: 15, mode: jewel, labels: false, constellations: false, constellation_names: false,
+        message: "宝石箱" }
     - { duration_sec: 20, location: osaka, time: "2027-08-10 20:30", speed: 300, mode: real,
         message: "大阪の夏の空" }
     - { duration_sec: 20, location: achi, mode: milkyway, message: "阿智村の天の川" }

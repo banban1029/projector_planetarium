@@ -35,6 +35,7 @@ struct RenderConfig {
     bool show_grid = false;
     bool show_compass = false;
     bool show_constellations = false;
+    bool show_constellation_names = false;
     bool show_labels = false;
     bool show_info = false;
     double moon_scale = 5.0;   // 月・太陽を実際の何倍の大きさで描くか（実寸だと魚眼で直径 2px）
@@ -77,6 +78,7 @@ struct SeasonTourConfig {
 
 struct Config {
     std::string output = "debug";  // debug | projector
+    std::string operator_window = "auto";  // auto（projector のときだけ）| on | off
     ProjectorConfig projector;
     ProjectionConfig projection;
     RenderConfig render;

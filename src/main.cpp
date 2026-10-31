@@ -26,6 +26,7 @@
 #include "effects.hpp"
 #include "labels.hpp"
 #include "modes.hpp"
+#include "operator_window.hpp"
 #include "paths.hpp"
 #include "sky_renderer.hpp"
 #include "star_catalog.hpp"
@@ -33,7 +34,8 @@
 
 namespace {
 // コマンドライン: planetarium [config.yaml] [--time "YYYY-MM-DD HH:MM"] [--mode id] [--location id]
-//   [--grid] [--compass] [--constellations] [--labels] [--info] [--play]
+//   [--grid] [--compass] [--constellations] [--constellation-names] [--labels] [--info] [--play] [--operator]
+//   [--test-pattern] [--credits]
 //   [--screenshot out.png|out.ppm [--wait 秒]]（描いて画像を保存し終了。検証・資料用）
 //   [--record 名前 --count N --interval 秒]（連続撮影: 名前_000.png ...。動きの確認用）
 //   [--benchmark 秒]（垂直同期を切って描画速度を測り終了）
@@ -44,7 +46,8 @@ struct Options {
     double wait = 0.0, interval = 0.5, benchmark = 0.0;
     int count = 8;
     bool dumpPositions = false;
-    bool grid = false, compass = false, constellations = false, labels = false, info = false, play = false;
+    bool grid = false, compass = false, constellations = false, constellationNames = false, labels = false;
+    bool info = false, play = false, operatorWindow = false, testPattern = false, credits = false;
 };
 
 Options parseArgs(int argc, char** argv, const std::string& root) {
@@ -66,19 +69,29 @@ Options parseArgs(int argc, char** argv, const std::string& root) {
         else if (a == "--grid") o.grid = true;
         else if (a == "--compass") o.compass = true;
         else if (a == "--constellations") o.constellations = true;
+        else if (a == "--constellation-names") o.constellationNames = true;
         else if (a == "--labels") o.labels = true;
         else if (a == "--info") o.info = true;
         else if (a == "--play") o.play = true;
+        else if (a == "--operator") o.operatorWindow = true;
+        else if (a == "--test-pattern") o.testPattern = true;
+        else if (a == "--credits") o.credits = true;
         else o.configPath = a;
     }
     return o;
 }
 
-// 既定フレームバッファを PNG（拡張子 .png）または binary PPM で保存する
-void saveScreenshot(const std::string& path, int w, int h) {
+// 画像を PNG（拡張子 .png）または binary PPM で保存する。texture を渡せばそのテクスチャ、
+// 0 なら今のコンテキストの既定フレームバッファを読む（出力画像は texture から読む。
+// 画面への転送直後に既定フレームバッファを読むと、ドライバによっては 1 つ前のフレームが返るため）
+void saveScreenshot(const std::string& path, int w, int h, GLuint texture = 0) {
     std::vector<unsigned char> px(static_cast<size_t>(w) * h * 3);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, px.data());
+    if (texture) {
+        glGetTextureImage(texture, 0, GL_RGB, GL_UNSIGNED_BYTE, static_cast<GLsizei>(px.size()), px.data());
+    } else {
+        glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, px.data());
+    }
     bool ok;
     if (path.size() > 4 && path.substr(path.size() - 4) == ".png") {
         stbi_flip_vertically_on_write(1);
@@ -190,7 +203,7 @@ void addTexts(TextRenderer& text, const AppState& app, const ModeStyle& style, c
             request(TextRenderer::SkyJ2000, s.dirJ2000, s.text, 13.0f, white, 2.0f + s.mag * 0.2f, true);
         }
     }
-    if (o.labels || style.constellationArt) {
+    if (o.constellationNames || style.constellationArt) {
         const float blue[4] = {0.45f, 0.60f, 0.85f, 0.85f}, gold[4] = {1.0f, 0.80f, 0.45f, 0.95f};
         for (const auto& n : cons.names) {
             if (!style.constellationArt && n.rank > 2) continue;  // 目立たない星座は名前を省く
@@ -208,14 +221,35 @@ void addTexts(TextRenderer& text, const AppState& app, const ModeStyle& style, c
         const auto lines = infoLines(app);
         for (size_t i = 0; i < lines.size(); ++i) {
             const float y = margin + (lines.size() - 1 - i) * 24.0f * px + 8.0f * px;
-            text.add(TextRenderer::Screen, bottomLeft, lines[i], 18.0f * px, c, TextRenderer::Left, margin, y);
+            text.add(TextRenderer::Screen, bottomLeft, lines[i], 18.0f * px, c, TextRenderer::Left, margin, y,
+                     TextRenderer::Overlay);
         }
     }
     const double age = now - app.toastTime;
     if (!app.toast.empty() && age < 3.0) {
         const float c[4] = {0.85f, 0.88f, 0.95f, static_cast<float>(std::min(1.0, 3.0 - age))};
         text.add(TextRenderer::Screen, bottomRight, app.toast, 18.0f * px, c, TextRenderer::Right, -margin,
-                 margin + 8.0f * px);
+                 margin + 8.0f * px, TextRenderer::Overlay);
+    }
+    if (o.credits) {
+        // データ・ライブラリの出典（CC BY-SA などの表示義務）。LICENSE と README にも同じ内容を書いている
+        const char* lines[] = {
+            "クレジット",
+            "",
+            "恒星データ：HYG Database v4.1（astronexus）  CC BY-SA 4.0",
+            "星座線・星座名：d3-celestial（Olaf Frohn）  BSD-3-Clause",
+            "太陽・月・惑星の計算：Astronomy Engine（Don Cross）  MIT",
+            "文字の描画・画像の保存：stb（Sean Barrett）  MIT / Public Domain",
+            "",
+            "Projector Planetarium  MIT License",
+        };
+        const float title[4] = {1.0f, 0.95f, 0.85f, 1.0f}, body[4] = {0.85f, 0.88f, 0.95f, 1.0f};
+        const int n = static_cast<int>(std::size(lines));
+        for (int i = 0; i < n; ++i) {
+            text.add(TextRenderer::Screen, astro::Vec3{0, 0, 0}, lines[i], (i == 0 ? 30.0f : 19.0f) * px,
+                     i == 0 ? title : body, TextRenderer::Center, 0.0f, ((n - 1) * 0.5f - i) * 34.0f * px,
+                     TextRenderer::Overlay);
+        }
     }
 }
 }  // namespace
@@ -256,6 +290,11 @@ int main(int argc, char** argv) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
     const std::string root = resourceRoot();
+#ifdef _WIN32
+    // 上映中に画面が消えたりスリープしたりしないようにする（終了すると元に戻る）
+    SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
+    std::printf("[power] display sleep is prevented while running\n");
+#endif
     const Options opts = parseArgs(argc, argv, root);
 
     Config cfg;
@@ -312,9 +351,14 @@ int main(int argc, char** argv) {
     };
     app.view = viewFromConfig(cfg);
     const auto& r = cfg.render;
-    app.overlays = {r.show_grid || opts.grid, r.show_compass || opts.compass,
-                    r.show_constellations || opts.constellations, r.show_labels || opts.labels,
-                    r.show_info || opts.info};
+    app.overlays.grid = r.show_grid || opts.grid;
+    app.overlays.compass = r.show_compass || opts.compass;
+    app.overlays.constellations = r.show_constellations || opts.constellations;
+    app.overlays.constellationNames = r.show_constellation_names || opts.constellationNames;
+    app.overlays.labels = r.show_labels || opts.labels;
+    app.overlays.info = r.show_info || opts.info;
+    app.overlays.testPattern = opts.testPattern;
+    app.overlays.credits = opts.credits;
     if (!app.clock.setLocalString(cfg.time.start)) {
         std::fprintf(stderr, "invalid time.start: %s (using now)\n", cfg.time.start.c_str());
     }
@@ -351,6 +395,20 @@ int main(int argc, char** argv) {
     text.build();
 
     installControls(app);
+    updateCursor(app);
+
+    // 操作パネル（PC の画面に出す 2 つ目のウィンドウ）
+    std::unique_ptr<OperatorWindow> operatorWindow;
+    if (opts.operatorWindow || cfg.operator_window == "on" ||
+        (cfg.operator_window == "auto" && cfg.output == "projector")) {
+        try {
+            operatorWindow = std::make_unique<OperatorWindow>(window, root, cfg.render.font);
+            attachControls(operatorWindow->window(), app);
+            std::printf("[operator] panel window opened\n");
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "%s\n", e.what());
+        }
+    }
     printHelp();
     if (opts.play) {
         if (const ScenarioStep* step = app.scenario->start()) applyScenarioStep(app, *step);
@@ -362,8 +420,9 @@ int main(int argc, char** argv) {
     double last = start;
     double lastTitle = -1.0;
     int frame = 0, recorded = 0, fpsFrames = 0;
-    double fpsStart = start;
-    while (!glfwWindowShouldClose(window)) {
+    double fpsStart = start, recordStart = -1.0;
+    // 操作パネルを閉じても終了する
+    while (!glfwWindowShouldClose(window) && !(operatorWindow && glfwWindowShouldClose(operatorWindow->window()))) {
         const double now = glfwGetTime();
         const double dt = now - last;
         last = now;
@@ -414,16 +473,32 @@ int main(int argc, char** argv) {
         renderer->render({fbW, fbH, app.view, sky, style, static_cast<float>(now), app.overlays,
                           landscapeId(here.landscape), &bodies, &effectLines});
         if (opts.benchmark > 0.0) glFinish();  // GPU の処理が終わるまで待って、実際の描画時間を測る
+        if (operatorWindow) {
+            operatorWindow->render(renderer->outputTexture(), fbW, fbH, operatorLines(app));
+            glfwMakeContextCurrent(window);
+        }
 
         ++frame;
         if (!opts.screenshot.empty() && frame >= 3 && now - start >= opts.wait) {
-            saveScreenshot(opts.screenshot, fbW, fbH);
+            saveScreenshot(opts.screenshot, fbW, fbH, renderer->outputTexture());
+            if (operatorWindow) {  // 操作パネルも「名前_operator.png」に保存する
+                glfwMakeContextCurrent(operatorWindow->window());
+                int ow, oh;
+                operatorWindow->framebufferSize(ow, oh);
+                const std::string base = opts.screenshot.substr(0, opts.screenshot.find_last_of('.'));
+                saveScreenshot(base + "_operator.png", ow, oh);
+                glfwMakeContextCurrent(window);
+            }
             glfwSetWindowShouldClose(window, 1);
         }
-        if (!opts.record.empty() && frame >= 3 && now - start >= opts.wait + recorded * opts.interval) {
+        // 連続撮影の間隔は 1 枚目を撮った時刻から数える（起動直後のフレームが遅くても間隔がそろうように）
+        if (!opts.record.empty() && frame >= 3 && now - start >= opts.wait &&
+            (recordStart < 0.0 || now - recordStart >= recorded * opts.interval)) {
+            if (recordStart < 0.0) recordStart = now;
             char name[512];
             std::snprintf(name, sizeof(name), "%s_%03d.png", opts.record.c_str(), recorded);
-            saveScreenshot(name, fbW, fbH);
+            std::printf("[record] frame %d at t = %.3f s\n", recorded, now - start);
+            saveScreenshot(name, fbW, fbH, renderer->outputTexture());
             if (++recorded >= opts.count) glfwSetWindowShouldClose(window, 1);
         }
         // 描画速度: 1 秒ごとに平均 fps を更新。--benchmark では指定秒数の平均を表示して終了
@@ -439,11 +514,16 @@ int main(int argc, char** argv) {
                         elapsed, frame / elapsed, 1000.0 * elapsed / frame, fbW, fbH, allModes()[app.mode].id);
             glfwSetWindowShouldClose(window, 1);
         }
+        if (operatorWindow) operatorWindow->present(window);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    operatorWindow.reset();
     renderer.reset();  // GL コンテキストが生きているうちに解放する
+#ifdef _WIN32
+    SetThreadExecutionState(ES_CONTINUOUS);
+#endif
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;

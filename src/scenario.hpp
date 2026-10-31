@@ -11,7 +11,8 @@ struct ScenarioStep {
     std::string mode;            // 表示モードの id
     std::string message;         // 画面に表示する文字
     int constellations = -1;     // 星座線 0/1
-    int labels = -1;             // 星・惑星・星座の名前 0/1
+    int labels = -1;             // 星・惑星・月の名前 0/1
+    int constellationNames = -1; // 星座名 0/1
 };
 
 struct Scenario {

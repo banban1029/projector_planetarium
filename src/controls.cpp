@@ -154,22 +154,55 @@ void handleKey(AppState& app, int key, int action, int mods) {
         case GLFW_KEY_C: o.compass = !o.compass; showToast(app, std::string("方位 ") + onOff(o.compass)); break;
         case GLFW_KEY_G: o.grid = !o.grid; showToast(app, std::string("グリッド ") + onOff(o.grid)); break;
         case GLFW_KEY_K:
-            o.constellations = !o.constellations;
-            showToast(app, std::string("星座線 ") + onOff(o.constellations));
+            // 星座の表示を 線 → 線と名前 → なし の順に切り替える
+            if (!o.constellations && !o.constellationNames) {
+                o.constellations = true;
+                showToast(app, "星座: 線");
+            } else if (!o.constellationNames) {
+                o.constellations = o.constellationNames = true;
+                showToast(app, "星座: 線と名前");
+            } else {
+                o.constellations = o.constellationNames = false;
+                showToast(app, "星座: OFF");
+            }
             break;
-        case GLFW_KEY_J: o.labels = !o.labels; showToast(app, std::string("名前 ") + onOff(o.labels)); break;
+        case GLFW_KEY_J:
+            o.labels = !o.labels;
+            showToast(app, std::string("星・惑星の名前 ") + onOff(o.labels));
+            break;
         case GLFW_KEY_I: o.info = !o.info; std::printf("[view] info %s\n", onOff(o.info)); break;
         case GLFW_KEY_P: toggleScenario(app); break;
         case GLFW_KEY_V: toggleProjection(app); break;
-        case GLFW_KEY_F11: toggleFullscreen(app); std::printf("[view] fullscreen toggled\n"); break;
+        case GLFW_KEY_F11:
+            toggleFullscreen(app);
+            updateCursor(app);
+            std::printf("[view] fullscreen toggled\n");
+            break;
+        case GLFW_KEY_X:
+            o.testPattern = !o.testPattern;
+            showToast(app, std::string("テストパターン ") + onOff(o.testPattern));
+            break;
+        case GLFW_KEY_F12:
+            o.credits = !o.credits;
+            showToast(app, std::string("クレジット ") + onOff(o.credits));
+            break;
         case GLFW_KEY_H: printHelp(); break;
         default: break;
     }
 }
 
-void installControls(AppState& app) {
-    glfwSetWindowUserPointer(app.window, &app);
-    glfwSetKeyCallback(app.window, onKey);
+void installControls(AppState& app) { attachControls(app.window, app); }
+
+void attachControls(GLFWwindow* window, AppState& app) {
+    glfwSetWindowUserPointer(window, &app);
+    glfwSetKeyCallback(window, onKey);
+}
+
+void updateCursor(AppState& app) {
+    if (!app.window) return;
+    const bool fullscreen = glfwGetWindowMonitor(app.window) != nullptr;
+    glfwSetInputMode(app.window, GLFW_CURSOR, fullscreen ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
+    std::printf("[view] cursor %s\n", fullscreen ? "hidden" : "shown");
 }
 
 void printHelp() {
@@ -187,13 +220,15 @@ void printHelp() {
         "  R           reverse time\n"
         "  Left/Right  -/+ 1 hour (Shift: 1 day)\n"
         "  N           back to now, x1\n"
-        "  K           constellation lines on/off\n"
-        "  J           names (stars, planets, constellations) on/off\n"
+        "  K           constellations: lines -> lines + names -> off\n"
+        "  J           star / planet names on/off\n"
         "  C           compass on/off\n"
         "  G           alt/az grid on/off\n"
         "  I           on-screen info on/off\n"
         "  P           play / stop scenario\n"
         "  V           fisheye / perspective\n"
+        "  X           test pattern (projector adjustment)\n"
+        "  F12         credits\n"
         "  F11         fullscreen\n"
         "  H           help, Esc quit\n");
 }
@@ -214,6 +249,7 @@ void applyScenarioStep(AppState& app, const ScenarioStep& s) {
     if (s.speed > 0) app.clock.setSpeed(s.speed);
     if (!s.mode.empty()) app.mode = findMode(s.mode);
     if (s.constellations >= 0) app.overlays.constellations = s.constellations != 0;
+    if (s.constellationNames >= 0) app.overlays.constellationNames = s.constellationNames != 0;
     if (s.labels >= 0) app.overlays.labels = s.labels != 0;
     app.transition = true;
     std::printf("[scenario] step %zu/%zu %s\n", app.scenario->index() + 1, app.scenario->size(), s.message.c_str());
@@ -241,4 +277,34 @@ std::vector<std::string> infoLines(const AppState& app) {
     if (!app.seasons.currentName().empty()) line2 += "  " + app.seasons.currentName();
     if (app.scenario && app.scenario->playing()) line2 += "  ▶シナリオ";
     return {line1, line2};
+}
+
+std::vector<std::string> operatorLines(const AppState& app) {
+    const auto& o = app.overlays;
+    const char* state = app.clock.paused() ? "一時停止" : (app.clock.reversed() ? "逆再生" : "再生");
+    char buf[256];
+    std::vector<std::string> lines;
+    std::snprintf(buf, sizeof(buf), "#%s  x%g %s   %.0f fps", app.clock.formatLocal().c_str(), app.clock.speed(), state,
+                  app.fps);
+    lines.push_back(buf);
+    std::string where = "#" + app.locations[app.location].name + "  /  " + allModes()[app.mode].name;
+    if (!app.seasons.currentName().empty()) where += "  /  季節: " + app.seasons.currentName();
+    lines.push_back(where);
+    std::snprintf(buf, sizeof(buf), "表示: 星座線 %s  星座名 %s  星の名前 %s  方位 %s  グリッド %s  画面表示 %s",
+                  onOff(o.constellations), onOff(o.constellationNames), onOff(o.labels), onOff(o.compass),
+                  onOff(o.grid), onOff(o.info));
+    lines.push_back(buf);
+    if (app.scenario && app.scenario->playing()) {
+        std::snprintf(buf, sizeof(buf), "シナリオ再生中: %zu / %zu 場面", app.scenario->index() + 1, app.scenario->size());
+        lines.push_back(buf);
+    } else {
+        lines.push_back("シナリオ: 停止中（P で再生）");
+    }
+    if (o.testPattern) lines.push_back("#テストパターン表示中（X で戻る）");
+    lines.push_back("");
+    lines.push_back("0-8 モード   M 次のモード   L 観測地   S 次の季節   F1-F5 季節   T 季節の自動巡回");
+    lines.push_back("↑↓ 時間倍率   Space 一時停止   R 逆再生   ←→ ±1時間   N 現在時刻");
+    lines.push_back("K 星座   J 星の名前   C 方位   G グリッド   I 画面表示   V 投影   P シナリオ");
+    lines.push_back("X テストパターン   F12 クレジット   F11 全画面   Esc 終了");
+    return lines;
 }
