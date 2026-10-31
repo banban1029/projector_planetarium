@@ -1,0 +1,68 @@
+# 出力先
+#   debug     : PC 画面にウィンドウ表示（projector の解像度と同じサイズ）。まずはこちらで正しく表現できるまで開発する
+#   projector : projector.monitor_index のモニタにフルスクリーン出力（未接続ならウィンドウにフォールバック）
+output: debug
+
+# プロジェクタ / 表示設定
+# Optoma ML1050ST+ : DLP 0.45" DMD, ネイティブ WXGA 1280x800 (16:10), 投写比 0.8:1, 1000 lm
+projector:
+  name: "Optoma ML1050ST+"
+  width: 1280            # ネイティブ解像度で出力する（スケーリングによるボケを避ける）
+  height: 800
+  refresh_rate: 60
+  throw_ratio: 0.8       # 投写距離 / 画面幅
+  monitor_index: 1       # 0 = ノートPC本体, 1 = プロジェクタ
+  flip_horizontal: false # リア投影時に true
+  flip_vertical: false   # 天吊り / 天井投影の向き調整
+  vsync: true
+
+# 投影方式
+projection:
+  type: fisheye          # fisheye(天頂中心の等距離射影, 天井投影向け) | perspective(壁投影向け)
+  fov_deg: 180           # fisheye: 地平線まで = 180
+  center_alt_deg: 90     # 視線方向の高度（90 = 天頂）
+  center_az_deg: 180     # 視線方向の方位（0 = 北, 180 = 南）
+  rotation_deg: 0        # 映像全体の回転（設置向きの補正）
+  circle_mask: true      # fisheye 円外を黒でマスク
+
+# 観測地
+observer:
+  name: "大阪大学 吹田キャンパス"
+  latitude_deg: 34.82
+  longitude_deg: 135.52
+  elevation_m: 50
+  timezone_hours: 9      # JST
+
+# 時間
+time:
+  start: "now"           # "now" または "2026-12-14 22:00"（観測地の地方時）
+  speed: 1               # 実時間に対する倍率。speed_steps のいずれか
+  # ↑/↓ キーで切り替える倍率の段階（1 = 実時間, 3600 = 1秒で1時間, 86400 = 1秒で1日）
+  speed_steps: [1, 10, 60, 300, 600, 1800, 3600, 21600, 86400]
+
+# 季節プリセット（S / Shift+S で巡回、F1〜 で直接ジャンプ）
+# 並び順 = 巡回順。日付は毎年同じ月日・地方時として扱う
+seasons:
+  - { name: "春",   date: "04-15", time: "21:00" }
+  - { name: "初夏", date: "06-10", time: "21:30" }
+  - { name: "夏",   date: "08-10", time: "21:00" }
+  - { name: "秋",   date: "10-20", time: "21:00" }
+  - { name: "冬",   date: "01-20", time: "21:00" }
+
+# 季節の自動巡回（T キーで ON/OFF）
+season_tour:
+  enabled: false
+  interval_sec: 30       # 実時間で何秒ごとに次の季節へ進むか
+
+# 起動時の表示モード（0〜9 キー / M キーで切り替え）
+#   real | aurora | nebula | meteor | constellation | jewel | warp | milkyway | mirror
+mode: real
+
+render:
+  limiting_magnitude: 6.0   # 表示する最暗等級
+  star_size_scale: 1.0
+  show_constellation_lines: false
+  show_planets: true
+  show_milky_way: true
+  show_horizon: true
+  gamma: 2.2
