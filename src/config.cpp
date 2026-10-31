@@ -115,6 +115,7 @@ Config loadConfig(const std::string& path) {
         read(r, "extinction", c.extinction);
         read(r, "exposure", c.exposure);
         read(r, "gamma", c.gamma);
+        read(r, "white_level", c.white_level);
         read(r, "show_grid", c.show_grid);
         read(r, "show_compass", c.show_compass);
         read(r, "show_constellations", c.show_constellations);

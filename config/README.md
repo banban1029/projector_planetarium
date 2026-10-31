@@ -90,3 +90,5 @@ scenario:
 - スクリーンの裏から映す（リア投影）で左右が逆 → `projector.flip_horizontal: true`
 - 映像の北が部屋の北と合わない → `projection.rotation_deg` で回す（`C` キーで方位を表示して合わせる）
 - 星が暗い／明るすぎる → `render.brightness`、`render.gamma`
+- 明るい星どうしの差が出ない（テストパターン下端の右の段が同じ白に見える）→ `render.white_level` を下げる
+  （出力の最大値。テストパターンにも掛かるので、X キーで見ながら全段が見分けられる値にする）

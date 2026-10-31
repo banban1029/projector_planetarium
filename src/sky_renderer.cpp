@@ -417,6 +417,7 @@ void SkyRenderer::render(const FrameInput& in) {
     setUniform(postProgram_, "u_exposure",
                static_cast<float>(render_.exposure) * (in.overlays.credits ? 0.25f : 1.0f));
     setUniform(postProgram_, "u_gamma", static_cast<float>(render_.gamma));
+    setUniform(postProgram_, "u_whiteLevel", static_cast<float>(render_.white_level));
     setUniform(postProgram_, "u_dither", render_.dither ? 1 : 0);
     glBindTextureUnit(0, sceneTex_);
     glBindTextureUnit(1, bloomTex_[0]);
@@ -430,6 +431,7 @@ void SkyRenderer::render(const FrameInput& in) {
     if (in.overlays.testPattern) {
         setProjectionUniforms(testPatternProgram_, width, height, view, 0);
         setUniform2(testPatternProgram_, "u_viewport", float(width), float(height));
+        setUniform(testPatternProgram_, "u_whiteLevel", static_cast<float>(render_.white_level));
         drawFullscreen(testPatternProgram_);
     }
 

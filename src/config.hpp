@@ -33,6 +33,7 @@ struct RenderConfig {
     double extinction = 0.25;           // 大気減光係数 [mag / エアマス]
     double exposure = 1.0;
     double gamma = 2.2;
+    double white_level = 1.0;  // 出力の最大値（0〜1）。プロジェクタが明るいところで頭打ちになるとき下げる
     bool show_grid = false;
     bool show_compass = false;
     bool show_constellations = false;

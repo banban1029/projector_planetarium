@@ -12,6 +12,7 @@ uniform bool u_mirror;      // 水鏡モード
 uniform float u_time;
 uniform float u_exposure;
 uniform float u_gamma;
+uniform float u_whiteLevel;  // 出力の最大値（プロジェクタの白とび対策）
 uniform bool u_dither;
 
 out vec4 o_color;
@@ -37,7 +38,7 @@ void main() {
     c += texture(u_bloom, uv).rgb * u_bloomStrength;
     if (u_fadeT < 1.0) c = mix(texture(u_fade, uv).rgb, c, smoothstep(0.0, 1.0, u_fadeT));
 
-    c = pow(clamp(c * u_exposure, 0.0, 1.0), vec3(1.0 / u_gamma));
+    c = pow(clamp(c * u_exposure, 0.0, 1.0), vec3(1.0 / u_gamma)) * u_whiteLevel;
     // 8bit 出力で暗いグラデーションが縞にならないよう ±0.5 階調のノイズを加える
     float noise = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
     o_color = vec4(c + (u_dither ? noise / 255.0 : 0.0), 1.0);
