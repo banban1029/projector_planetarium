@@ -23,6 +23,18 @@ python tests/verify/verify.py --quick   # 描画速度と Stellarium を省く�
 検証の詳細は [tests/verify/README.md](tests/verify/README.md)、これまでの結果は [docs/verification.md](docs/verification.md)。
 Stellarium が入っていなければ `stellarium` は SKIP になる（失敗ではない）。
 
+## プロジェクタ（Optoma）につないだとき
+
+```sh
+python tests/verify/projector.py    # 自動の確認。結果は build/verify/projector_report.md
+```
+
+- `RESULT` を確かめ、report の「目で確かめる画像」（`build/verify/projector/sheet.png`）を開く。
+- WARN の「バッテリー駆動」は充電器につなげば消える。描画速度が足りないときも、まず電源を疑う。
+- 投影そのものの見え方（ピント・明るさ・音）は人にしか分からない。`--manual` を人に実行してもらう。
+- 「アプリケーション制御ポリシーによってブロック」は Windows のスマート アプリ コントロール。コードの失敗ではない。
+  回避する細工はせず、人に伝える。
+
 ## 上映（解説つきシナリオ）
 
 - 台本は `shows/*.yaml`、ストーリー構成は同じ名前の `.md`。`./show.sh`（PowerShell は `.\show.ps1`）で流す。

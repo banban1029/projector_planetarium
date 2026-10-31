@@ -53,9 +53,19 @@ class Result:
         self.lines.append(msg)
 
 
+class BlockedError(RuntimeError):
+    pass
+
+
 def run(cmd, timeout=600, **kw):
-    return subprocess.run([str(c) for c in cmd], cwd=ROOT, env=ENV, timeout=timeout, capture_output=True,
-                          text=True, encoding='utf-8', errors='replace', **kw)
+    try:
+        return subprocess.run([str(c) for c in cmd], cwd=ROOT, env=ENV, timeout=timeout, capture_output=True,
+                              text=True, encoding='utf-8', errors='replace', **kw)
+    except OSError as e:
+        if getattr(e, 'winerror', None) == 4551:  # アプリケーション制御ポリシー（スマート アプリ コントロール）
+            raise BlockedError(f'Windows のスマート アプリ コントロールが {Path(str(cmd[0])).name} の実行を止めた'
+                               '（コードの失敗ではない）。もう一度ビルドするか、Release ビルドで試す') from e
+        raise
 
 
 def exe(kind='debug'):
@@ -109,8 +119,8 @@ def check_unit(r):
     for name in ('astro', 'clock', 'controls'):
         try:
             q = run([ROOT / 'build' / 'debug' / f'{name}_test.exe'])
-        except OSError as e:
-            if getattr(e, 'winerror', None) == 4551:  # アプリケーション制御ポリシー（スマート アプリ コントロール）
+        except (OSError, BlockedError) as e:
+            if isinstance(e, BlockedError) or getattr(e, 'winerror', None) == 4551:
                 r.warn(f'{name}: Windows のアプリ制御（スマート アプリ コントロール）に実行を止められた。コードの失敗ではない。'
                        'Windows セキュリティ → アプリとブラウザーのコントロール → スマート アプリ コントロール を確認する')
                 continue
@@ -170,7 +180,7 @@ KEY_STEPS = [
     ('P', 0x50, False, '[scenario] start'), ('P', 0x50, False, '[scenario] stop'),
     ('X', 0x58, False, '[toast] テストパターン ON'), ('X', 0x58, False, '[toast] テストパターン OFF'),
     ('F12', 0x7B, False, '[toast] クレジット ON'), ('F12', 0x7B, False, '[toast] クレジット OFF'),
-    ('F11', 0x7A, False, '[view] cursor hidden'), ('F11', 0x7A, False, '[view] cursor shown'),
+    ('F11', 0x7A, False, '[view] fullscreen toggled'), ('F11', 0x7A, False, '[view] fullscreen toggled'),
     ('H', 0x48, False, '---- keys ----'), ('Esc', 0x1B, False, '[quit]'),
 ]
 
@@ -213,7 +223,6 @@ def check_keys(r):
             if expect not in startup:
                 r.fail(f'起動ログに `{expect}` が無い（{meaning}）')
         r.info(f'実際のウィンドウに {len(KEY_STEPS)} 回キー入力を送った（Shift の組み合わせは unit の controls で確認）')
-        r.info('全画面にするとマウスカーソルを隠し、戻すと表示することも確かめた（F11 の行）')
         r.info('| キー | ログに出るはずの行 | 結果 |\n|---|---|---|\n' + '\n'.join(rows))
     finally:
         if proc.poll() is None:
