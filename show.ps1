@@ -9,10 +9,11 @@ Set-Location $PSScriptRoot
 $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
 $show = 'shows/autumn_2026.yaml'
 
-if (-not (Test-Path 'build\debug\build.ninja')) { cmake --preset mingw-debug; if ($LASTEXITCODE) { exit $LASTEXITCODE } }
-cmake --build --preset mingw-debug
+# 上映は Release ビルド（速い。Windows のスマート アプリ コントロールに止められたときの切り分けにもなる）
+if (-not (Test-Path 'build\release\build.ninja')) { cmake --preset mingw-release; if ($LASTEXITCODE) { exit $LASTEXITCODE } }
+cmake --build --preset mingw-release
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 # ナレーション（Windows の日本語音声）と BGM を作る。台本が変わった場面だけ作り直す
 & "$PSScriptRoot\scripts\make_show_audio.ps1" $show
-& "$PSScriptRoot\run.ps1" --scenario $show --play @args
+& "$PSScriptRoot\run.ps1" --release --scenario $show --play @args
 exit $LASTEXITCODE

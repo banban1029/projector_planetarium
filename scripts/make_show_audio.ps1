@@ -10,10 +10,10 @@ Set-Location $root
 $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
 
 # 台本の読み上げ文はアプリに出してもらう（YAML の読み方をアプリと揃えるため）
-$exe = Join-Path $root 'build\debug\planetarium.exe'
+$exe = Join-Path $root 'build\release\planetarium.exe'
 if (-not (Test-Path $exe)) {
-    cmake --preset mingw-debug | Out-Null
-    cmake --build --preset mingw-debug | Out-Null
+    cmake --preset mingw-release | Out-Null
+    cmake --build --preset mingw-release | Out-Null
 }
 $previous = [Console]::OutputEncoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8

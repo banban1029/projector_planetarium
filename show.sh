@@ -10,8 +10,9 @@ cd "$(dirname "$0")"
 export PATH="/c/msys64/mingw64/bin:$PATH"
 SHOW=shows/autumn_2026.yaml
 
-[[ -f build/debug/build.ninja ]] || cmake --preset mingw-debug
-cmake --build --preset mingw-debug
+# 上映は Release ビルド（速い。Windows のスマート アプリ コントロールに止められたときの切り分けにもなる）
+[[ -f build/release/build.ninja ]] || cmake --preset mingw-release
+cmake --build --preset mingw-release
 # ナレーション（Windows の日本語音声）と BGM を作る。台本が変わった場面だけ作り直す
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/make_show_audio.ps1 "$SHOW"
-exec ./run.sh --scenario "$SHOW" --play "$@"
+exec ./run.sh --release --scenario "$SHOW" --play "$@"
