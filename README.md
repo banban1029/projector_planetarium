@@ -3,11 +3,18 @@
 OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影するプログラム。
 開発方針は [PLAN.md](PLAN.md)、設計と実装アルゴリズムは [docs/](docs/README.md) を参照。
 
-![12月15日 22:00 大阪の星空](docs/images/winter_night.png)
+![12月15日 22:00 阿智村の星空（星座線・名前・方位）](docs/images/constellations.png)
 
-> 現段階：恒星（6.5 等まで約 9,000 星）を正しい位置・明るさ・色で描画し、薄明の空、大気差・大気減光、
-> 魚眼／透視投影、季節・時間の操作ができる。月・惑星・星座線・幻想モードの固有演出はこれから。
-> まずは PC 画面（デバッグ表示）で確認し、正しく表現できてからプロジェクタに出す。
+**できること**
+
+- 恒星 8,920 個（6.5 等まで）、太陽・月（満ち欠け）・惑星を、観測地と日時に合わせた正しい位置に描く
+- 観測地の切り替え（大阪大学 ⇔ 長野県阿智村）。街明かり・地平線の景色（街並み／山並み）・見える星の数が変わる
+- 天の川、薄明、月明かり、大気差・大気減光、瞬き、光のにじみ
+- 星座線・星座名・星や惑星の名前（日本語）、方位、座標グリッド、日時の画面表示
+- 季節ジャンプ（巡回・自動巡回）、時間の倍率・逆再生、シナリオの自動再生、場面切り替えのフェード
+- リアルモードと 8 種類の幻想モード（オーロラ・星雲・流星群・星座絵・宝石箱・ワープ航行・天の川・水鏡）
+
+まずは PC 画面（デバッグ表示）で確認し、正しく表現できてからプロジェクタ（Optoma ML1050ST+）に出す。
 
 ## フォルダ構成
 
@@ -18,18 +25,21 @@ OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影
 | [src/](src/README.md) | C++ のソースコード（天文計算・描画・操作） |
 | [shaders/](shaders/README.md) | GLSL シェーダ（星・空・方位の文字・出力） |
 | [config/](config/README.md) | 設定ファイル（YAML）：プロジェクタ・投影・観測地・時間・季節・描画 |
-| [data/](data/README.md) | 恒星表 `stars.csv`（HYG Database 由来） |
-| [scripts/](scripts/README.md) | 星表のダウンロード・変換スクリプト |
-| [tests/](tests/README.md) | 天文計算のテスト |
+| [data/](data/README.md) | 恒星表・星座線・星座名・星の日本語名（CSV） |
+| [scripts/](scripts/README.md) | 星表・星座データのダウンロード・変換スクリプト |
+| [tests/](tests/README.md) | 自動テスト（天文計算・時刻・季節・シナリオ・キー操作）と、まとめて検証するスクリプト（`tests/verify/`） |
+| [third_party/](third_party/README.md) | 同梱の外部ライブラリ（Astronomy Engine、stb） |
 | [docs/](docs/README.md) | 設計ドキュメント（工夫点・アルゴリズム）と画像 |
 | [.vscode/](.vscode/README.md) | VS Code の設定（ビルド・デバッグ） |
 | `build/` | ビルド結果（git 管理外。消しても `run.sh` / `run.ps1` で作り直せる） |
+| `dist/` | 配布用フォルダ（git 管理外。`cmake --install` で作る。[§7](#7-配布用フォルダを作るpath-なしで動く)） |
 
 | ファイル | 内容 |
 |---|---|
 | `run.sh` / `run.ps1` | ビルドして起動するスクリプト（MSYS2 Bash 用 / PowerShell 用） |
 | `CMakeLists.txt` / `CMakePresets.json` | ビルド設定 |
-| [PLAN.md](PLAN.md) | 開発方針・マイルストーン |
+| [PLAN.md](PLAN.md) | 開発方針・マイルストーン・TODO |
+| [CLAUDE.md](CLAUDE.md) | AI（Claude Code）向けの作業手順（変更したら `tests/verify/verify.py` を実行する、など） |
 
 ---
 
@@ -154,9 +164,14 @@ cmake --build --preset mingw-debug   # ビルド
 | `--time "2026-12-15 22:00"` | 起動時の日時（地方時）。YAML の `time.start` より優先 |
 | `--mode jewel` | 起動時のモード |
 | `--location achi` | 起動時の観測地（YAML の `locations` の `id`） |
-| `--grid` | 高度・方位グリッドを表示して起動 |
-| `--compass` | 方位の文字 N/E/S/W を表示して起動 |
-| `--screenshot out.ppm` | 3 フレーム描いて画像（PPM）を保存し、すぐ終了する。検証・資料作り用 |
+| `--grid` / `--compass` | 高度・方位グリッド / 方位（北東南西）を表示して起動 |
+| `--constellations` / `--labels` / `--info` | 星座線 / 名前 / 画面左下の日時などを表示して起動 |
+| `--play` | 起動してすぐシナリオを再生する（上映用） |
+| `--screenshot out.png` | 描いた画面を PNG（`.ppm` なら PPM）で保存してすぐ終了する。検証・資料作り用 |
+| `--wait 2` | `--screenshot` の前に待つ秒数（流れ星・ワープなど動く演出を撮るとき） |
+| `--record 名前 --count 8 --interval 0.5` | 一定間隔で連続撮影する（`名前_000.png` 〜）。動きの確認用 |
+| `--benchmark 5` | 垂直同期を切って 5 秒間描き、平均の fps を表示して終了する |
+| `--dump-positions` | 主な天体の高度・方位を表示して終了する（Stellarium などとの比較用） |
 
 例：12/15 22 時の空を、グリッドと方位の文字付きで表示する
 
@@ -168,7 +183,7 @@ cmake --build --preset mingw-debug   # ビルド
 .\run.ps1 --time "2026-12-15 22:00" --grid --compass     # PowerShell
 ```
 
-### テスト（天文計算）
+### テスト
 
 どちらのターミナルでも同じ：
 
@@ -177,7 +192,22 @@ cmake --build --preset mingw-debug
 ctest --preset mingw-debug
 ```
 
-Meeus『Astronomical Algorithms』の例題と比べて、恒星時・歳差・太陽位置・地平座標変換を確認する（[docs/astronomy.md §9](docs/astronomy.md#9-検証)）。
+- `astro`：恒星時・歳差・太陽位置・地平座標変換を、Meeus『Astronomical Algorithms』の例題と、
+  独立した天文計算ライブラリ Astronomy Engine の結果に照らして確認する（[docs/astronomy.md §9](docs/astronomy.md#9-検証)）
+- `clock`：時間の倍率・逆再生・季節の巡回・シナリオ再生（[tests/README.md](tests/README.md)）
+- `controls`：すべてのキー操作（Shift の組み合わせを含む）
+
+### すべての検証をまとめて実行
+
+ビルド・テスト・実際のウィンドウでのキー操作・動き・描画速度・Stellarium との比較・目視用の画像までを 1 つのコマンドで行う（どちらのターミナルでも同じ）：
+
+```sh
+python tests/verify/verify.py            # すべて（約 2〜3 分）
+python tests/verify/verify.py --quick    # 描画速度と Stellarium を省く
+```
+
+結果は `build/verify/report.md` と一覧画像（`sheet_scenes.png` など）にまとまる（[tests/verify/README.md](tests/verify/README.md)）。
+これまでの検証の記録は [docs/verification.md](docs/verification.md)。
 
 ### 起動したときの表示
 
@@ -187,13 +217,15 @@ Meeus『Astronomical Algorithms』の例題と比べて、恒星時・歳差・�
 monitor[0]: Generic PnP Monitor 2880x1800@60Hz
 GL 4.5.0 - Build 32.0.101.8626 / Intel(R) Arc(TM) 130V GPU (8GB)
 output: debug 1280x800, location: 大阪大学 吹田キャンパス (34.82, 135.52)
-stars: 8920
+stars: 8920, constellation lines: 743, names: 89 + 35
+font: C:/Windows/Fonts/BIZ-UDGothicR.ttc
 ---- keys ----
   ...
 ```
 
 画面は天頂を中心にした全天の魚眼で、**北が上・東が左**（寝転んで見上げた空の向き）。円の縁が地平線。
-`C` キーで方位の文字（N/E/S/W）を表示できる。
+`C` キーで方位（北・東・南・西）、`I` キーで左下に日時・観測地・モードを表示できる。
+キーで何かを切り替えると、右下に数秒だけ通知が出る（プロジェクタ出力ではウィンドウタイトルが見えないため）。
 
 ![方位表示](docs/images/compass.png)
 
@@ -230,10 +262,14 @@ stars: 8920
 | `R` | 逆再生の切り替え |
 | `←` / `→` | 1 時間戻す / 進める（`Shift` 付きで 1 日、押しっぱなしで連続） |
 | `N` | 現在時刻・×1（実時間）に戻す |
-| `C` | 方位の文字 N（北・赤）/ E / S / W を地平線の内側に表示 ON/OFF |
+| `K` | 星座線 ON/OFF |
+| `J` | 名前（星座名・主な星・惑星・月）ON/OFF |
+| `C` | 方位 北（赤）/ 東 / 南 / 西 を地平線の内側に表示 ON/OFF |
+| `I` | 画面左下に日時・倍率・観測地・モード・季節を表示 ON/OFF |
+| `P` | シナリオ（YAML の `scenario`）の再生 / 停止 |
 | `G` | 高度・方位グリッド ON/OFF（同心円 = 高度 15° ごと、放射線 = 方位 30° ごと、赤線 = 北） |
 | `V` | 魚眼（天頂・全天）⇔ 透視（南向き・画角 90°）の切り替え |
-| `F11` | 全画面切り替え |
+| `F11` | 全画面切り替え（ウィンドウが載っているモニタで全画面になる） |
 | `H` | キー一覧をターミナルに表示 |
 | `Esc` | 終了 |
 
@@ -294,7 +330,26 @@ stars: 8920
 4. `V` で南向きの透視投影にすると、地平線の上に S が出て、壁に映したときの見え方を確認できる
 5. もう一度 `C` / `G` で消える
 
-### 例8：上映用（幻想モードで季節を自動巡回）
+### 例8：星座を覚える
+1. `F5`（冬）
+2. `K` で星座線、`J` で名前を表示 → オリオン座・おおいぬ座・ふたご座などと、シリウス・ベテルギウスなどの名前が出る
+3. `L` で阿智村に切り替えると、暗い星まで見えて星座の形が分かりやすくなる
+
+### 例9：大阪と阿智村を比べる
+1. `L` で観測地を切り替える
+2. 大阪：空がオレンジ色に明るく、地平線に街並み、見える星は 4 等級まで。天の川は見えない
+3. 阿智村：空が暗く、地平線に山並み、6.5 等級まで見え、天の川が流れる（`F3` の夏がわかりやすい）
+
+| 大阪（冬 22 時） | 阿智村（夏 21 時） |
+|---|---|
+| ![大阪の空](docs/images/osaka_city.png) | ![阿智村の夏の天の川](docs/images/summer_milkyway.png) |
+
+### 例10：上映用（シナリオを再生）
+1. `P` でシナリオ再生。阿智村の夕暮れ → 冬の星座 → 宝石箱 → 大阪の夏 → 天の川 → 流星群 → オーロラ … と自動で進む
+2. 場面が変わるたびに 1 秒かけてフェードし、右下に場面の説明が出る
+3. もう一度 `P` で停止。内容は YAML の `scenario` で自由に書き換えられる
+
+### 例11：上映用（幻想モードで季節を自動巡回）
 1. `1`（オーロラ）など好きな幻想モードを選ぶ
 2. `T` → `(巡回中)` になり、30 秒ごとに次の季節へ進む
 3. 途中で `M` を押すとモードだけ切り替わり、巡回は続く
@@ -319,8 +374,10 @@ stars: 8920
 | `seasons` | 季節プリセット（並び順 = 巡回順） |
 | `season_tour` | 自動巡回の ON/OFF と間隔（秒） |
 | `mode` | 起動時のモード（`real`, `aurora`, `nebula`, …） |
+| `locations[].landscape` | 地平線の景色（`city` 街並み / `mountains` 山並み / `none`） |
 | `projection` | 投影方式（`fisheye` / `perspective`）、画角、視線の向き、回転 |
-| `render` | 星の明るさ・大きさ、限界等級、大気減光、露出・ガンマ（[docs/rendering.md](docs/rendering.md)） |
+| `render` | 星の明るさ・大きさ、限界等級、大気減光、月の大きさ、光のにじみ、露出・ガンマ、フォント、起動時の補助表示（[docs/rendering.md](docs/rendering.md)） |
+| `scenario` | 自動再生する場面の並び（観測地・日時・倍率・モード・表示・メッセージ・長さ） |
 
 YAML を変えたら **再起動するだけ**でよい（再ビルド不要）。
 
@@ -335,5 +392,24 @@ YAML を変えたら **再起動するだけ**でよい（再ビルド不要）�
 | キーが効かない | 星空のウィンドウをクリックしてフォーカスを当てる |
 | `cannot open .../data/stars.csv` | `python scripts/fetch_hyg.py` で星のデータを作る |
 | 星が出ない・真っ暗／空が明るい | 昼間の時刻になっている。タイトルの太陽高度を見て `F1`〜`F5` で夜に飛ぶ |
+| 文字が出ない（ログに `no Japanese font found`） | `render.font` に日本語フォントのファイル（.ttf / .ttc）を指定する |
 | `cmake --preset` で失敗する | `build` フォルダを削除してからやり直す |
 | VS Code でプリセットが出ない | `Ctrl+Shift+P` →「Developer: Reload Window」 |
+
+---
+
+## 7. 配布用フォルダを作る（PATH なしで動く）
+
+ビルドしたフォルダの外や、MSYS2 が入っていない PC で動かすときは、必要な DLL・シェーダ・データ・設定を
+1 つのフォルダにまとめる。
+
+```sh
+cmake --preset mingw-release
+cmake --build --preset mingw-release
+cmake --install build/release --prefix dist
+```
+
+`dist/` に `planetarium.exe`・DLL 6 個・`shaders/`・`data/`・`config/` ができる（約 5 MB）。
+フォルダごとコピーして `planetarium.exe` をダブルクリックすれば動く。
+実行ファイルは、まず自分と同じフォルダの `shaders/`・`data/` を探し、無ければソースフォルダを使う
+（環境変数 `PLANETARIUM_ROOT` で場所を指定することもできる）。

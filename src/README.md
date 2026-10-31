@@ -2,30 +2,49 @@
 
 C++17 のソースコード。ビルド設定は [../CMakeLists.txt](../CMakeLists.txt)。
 
+OpenGL を使わない部分は `planetarium_core`（静的ライブラリ）にまとめ、テストからも使う。
+
 ## ファイルの役割
 
+### 本体・操作
 | ファイル | 役割 |
 |---|---|
-| [main.cpp](main.cpp) | 起動・メインループ。設定と星表を読み、毎フレーム「時刻を進める → 天文計算 → 描画」。コマンドラインオプション（`--time` など）とスクリーンショット保存 |
+| [main.cpp](main.cpp) | 起動・メインループ。設定・星表・星座を読み、毎フレーム「時刻を進める → 天文計算 → 演出と文字を積む → 描画」。コマンドラインオプション、スクリーンショット・連続撮影、描画速度の計測、天体位置の出力 |
+| [controls.hpp](controls.hpp) / [controls.cpp](controls.cpp) | キーボード操作（`handleKey()`。テストからも呼ぶ）、アプリの状態（`AppState`）、通知（右下）、画面表示（左下）、ウィンドウタイトル、シナリオの場面の反映 |
+| [paths.hpp](paths.hpp) / [paths.cpp](paths.cpp) | シェーダ・データの置き場所を探す（環境変数 → 実行ファイルの隣 → ソースフォルダ） |
+
+### planetarium_core（OpenGL を使わない）
+| ファイル | 役割 |
+|---|---|
 | [config.hpp](config.hpp) / [config.cpp](config.cpp) | [config/projector.yaml](../config/projector.yaml) を構造体に読み込む（yaml-cpp） |
 | [sim_clock.hpp](sim_clock.hpp) / [sim_clock.cpp](sim_clock.cpp) | シミュレーション時刻。倍率・逆再生・一時停止、地方時 ⇔ Unix 時刻 ⇔ ユリウス日、現在時刻の表示 |
 | [seasons.hpp](seasons.hpp) / [seasons.cpp](seasons.cpp) | 季節プリセットへのジャンプ（巡回・直接）と自動巡回 |
-| [modes.hpp](modes.hpp) / [modes.cpp](modes.cpp) | 表示モード（リアル・幻想）の一覧と、モードごとの見せ方のパラメータ（`ModeStyle`） |
-| [controls.hpp](controls.hpp) / [controls.cpp](controls.cpp) | キーボード操作、アプリの状態（`AppState`）、ウィンドウタイトルの状態表示 |
+| [scenario.hpp](scenario.hpp) / [scenario.cpp](scenario.cpp) | シナリオ（場面の並び）を実時間で進める |
 | [astro.hpp](astro.hpp) / [astro.cpp](astro.cpp) | 天文計算：恒星時、歳差、赤道 → 地平座標、太陽の位置、大気差 |
+| [bodies.hpp](bodies.hpp) / [bodies.cpp](bodies.cpp) | 太陽・月・惑星の位置・等級・満ち欠け（Astronomy Engine） |
+
+### 描画
+| ファイル | 役割 |
+|---|---|
+| [sky_renderer.hpp](sky_renderer.hpp) / [sky_renderer.cpp](sky_renderer.cpp) | 描画の全体：背景 → 星座線 → 恒星・惑星 → 月・太陽 → 演出の線 → 文字 → ブルーム → 出力。薄明・月明かり・光害の計算 |
 | [star_catalog.hpp](star_catalog.hpp) / [star_catalog.cpp](star_catalog.cpp) | [data/stars.csv](../data/stars.csv) の読み込み、B−V → 温度 → 星の色 |
-| [sky_renderer.hpp](sky_renderer.hpp) / [sky_renderer.cpp](sky_renderer.cpp) | OpenGL の描画：背景（空・グリッド）、恒星、方位の文字、出力（露出・ガンマ）。薄明の空の色 |
-| [gl_util.hpp](gl_util.hpp) / [gl_util.cpp](gl_util.cpp) | シェーダの読み込み・コンパイル・リンク（共通 GLSL の差し込み） |
+| [constellations.hpp](constellations.hpp) / [constellations.cpp](constellations.cpp) | 星座線・星座名・星の日本語名の CSV を読む |
+| [line_renderer.hpp](line_renderer.hpp) / [line_renderer.cpp](line_renderer.cpp) | 太さのある線（ジオメトリシェーダ）。大円に沿った分割 `appendArc()` |
+| [text_renderer.hpp](text_renderer.hpp) / [text_renderer.cpp](text_renderer.cpp) | 日本語の文字（stb_truetype でフォントからアトラスを作る） |
+| [projection.hpp](projection.hpp) / [projection.cpp](projection.cpp) | 視点の設定（`ViewSettings`）と投影のパラメータ。シェーダの投影・景色の式の C++ 版（名前の配置に使う） |
+| [labels.hpp](labels.hpp) / [labels.cpp](labels.cpp) | 名前を画面上で重ならないように配置する |
+| [effects.hpp](effects.hpp) / [effects.cpp](effects.cpp) | 流れ星、ワープの光跡（CPU で線を作る） |
+| [modes.hpp](modes.hpp) / [modes.cpp](modes.cpp) | 表示モード（リアル・幻想 8 種）の一覧と、見せ方・演出のパラメータ（`ModeStyle`） |
+| [gl_util.hpp](gl_util.hpp) / [gl_util.cpp](gl_util.cpp) | シェーダの読み込み・コンパイル・リンク（共通 GLSL の差し込み、ジオメトリシェーダ） |
 
 ## 依存関係
 
 ```
-main ──▶ config, controls, sky_renderer, star_catalog, astro
-controls ──▶ sim_clock, seasons, modes, sky_renderer（ViewSettings, Overlays）
-sky_renderer ──▶ gl_util, astro, modes, star_catalog, config
-star_catalog ──▶ astro
-seasons ──▶ sim_clock, config
-astro ──▶（なし。テスト tests/astro_test.cpp からも使う）
+main ──▶ controls, sky_renderer, constellations, star_catalog, effects, bodies, paths
+controls ──▶ sim_clock, seasons, scenario, modes, sky_renderer（ViewSettings, Overlays）
+sky_renderer ──▶ text_renderer, line_renderer, gl_util, bodies, constellations, star_catalog, modes, config
+bodies ──▶ astro, Astronomy Engine（third_party）
+astro ──▶（なし。テストからも使う）
 ```
 
 ## 書き方の約束
