@@ -1,31 +1,155 @@
-"""上映の BGM（静かな環境音）を作曲して WAV に書く。標準ライブラリだけで動く。
+"""上映の BGM（ロマンチックで静かな曲）を作曲して WAV（ステレオ）に書く。標準ライブラリだけで動く。
 
     python scripts/make_bgm.py build/shows/autumn_2026/bgm.wav
 
-ゆっくり移り変わる 4 つの和音（1 つ 16 秒、4 秒かけて重なりながら切り替わる）と、
-まれに鳴る高い鈴のような音。64 秒で 1 周し、最後と最初がつながるので繰り返し再生できる。
-乱数の種を固定しているので、何度作っても同じ曲になる。
+ヘ長調、8 つの和音（1 つ 8 秒、64 秒で 1 周）。
+- やわらかいピアノの分散和音（アルペジオ）が、ゆっくり上って下りる
+- その上で、オルゴールのような高い音が短い旋律を歌う
+- 下では、あたたかいストリングスのような和音（パッド）が鳴り続ける
+- 全体に残響（リバーブ）をかけ、左右に少し広げる
+最後と最初がつながるので繰り返し再生できる。乱数は使わないので、何度作っても同じ曲になる。
+作るのに 1 分ほどかかる。
 """
 
 import array
 import math
-import random
-import struct
 import sys
 import wave
 from pathlib import Path
 
 RATE = 22050
-CHORD_SEC = 16.0
-OVERLAP_SEC = 4.0
-# 和音（周波数 [Hz]）: Cmaj9 → Am9 → Fmaj7 → G6sus。低めでやわらかく
+BEAT = 0.5          # 8 分音符の長さ [秒]（4 分音符 = 60 BPM）
+CHORD_SEC = 8.0     # 和音 1 つの長さ（16 拍）
+
+
+def hz(midi):
+    return 440.0 * 2 ** ((midi - 69) / 12)
+
+
+# 和音（MIDI 番号。低音 → 上の音）: Fmaj7 → Em7 → Am9 → Dm9 → B♭maj7 → Am7 → Gsus4 → C(add9)
 CHORDS = [
-    [130.81, 196.00, 246.94, 293.66, 329.63],
-    [110.00, 164.81, 196.00, 246.94, 261.63],
-    [87.31, 174.61, 220.00, 261.63, 329.63],
-    [98.00, 146.83, 196.00, 220.00, 293.66],
+    [41, 53, 57, 60, 64],
+    [40, 52, 55, 59, 62],
+    [45, 52, 55, 59, 60],
+    [38, 50, 53, 57, 64],
+    [46, 53, 57, 62, 65],
+    [45, 52, 55, 60, 64],
+    [43, 50, 55, 60, 62],
+    [48, 52, 55, 60, 62],
 ]
-BELL_NOTES = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50]  # ペンタトニック
+# 旋律（和音ごとに [拍, MIDI, 長さ（拍）]）。高いオルゴールの音で、間をたっぷりとる
+MELODY = [
+    [(0, 81, 3), (4, 79, 1), (5, 77, 2), (8, 76, 6)],
+    [(0, 79, 3), (4, 76, 1), (5, 74, 2), (8, 71, 6)],
+    [(0, 72, 2), (2, 76, 2), (4, 79, 4), (10, 83, 4)],
+    [(0, 81, 6), (8, 77, 2), (10, 76, 2), (12, 74, 4)],
+    [(0, 74, 3), (4, 77, 1), (5, 81, 2), (8, 82, 6)],
+    [(0, 81, 3), (4, 79, 1), (5, 76, 2), (8, 72, 6)],
+    [(0, 74, 4), (4, 72, 2), (6, 74, 2), (8, 79, 6)],
+    [(0, 76, 8), (10, 74, 2), (12, 72, 4)],
+]
+# アルペジオで弾く順番（和音の上 4 音の番号。上って下りる 8 拍を 2 回）
+ARP = [1, 2, 3, 4, 3, 2, 3, 2]
+
+
+def add(buf, start, samples, gain, pan):
+    """モノラルの音をステレオのバッファに足す（1 周の端で折り返す。pan: -1 左〜1 右）"""
+    n = len(buf) // 2
+    left = gain * math.cos((pan + 1) * math.pi / 4)
+    right = gain * math.sin((pan + 1) * math.pi / 4)
+    j = int(start * RATE) % n
+    for v in samples:
+        buf[2 * j] += left * v
+        buf[2 * j + 1] += right * v
+        j += 1
+        if j == n:
+            j = 0
+
+
+_cache = {}
+
+
+def piano(midi, length=3.0):
+    """やわらかいピアノ風の音: 倍音ごとに減衰の速さを変え、高い倍音ほど早く消える"""
+    key = ('piano', midi)
+    if key not in _cache:
+        f = hz(midi)
+        out = []
+        for i in range(int(length * RATE)):
+            t = i / RATE
+            v = 0.0
+            for h, amp, decay in ((1, 1.0, 1.6), (2, 0.35, 0.9), (3, 0.12, 0.5)):
+                v += amp * math.exp(-t / decay) * math.sin(2 * math.pi * f * h * 1.0006 ** (h - 1) * t)
+            out.append(v * min(1.0, t / 0.006) * min(1.0, (length - t) / 0.3))
+        _cache[key] = out
+    return _cache[key]
+
+
+def musicbox(midi, beats):
+    """オルゴール風の高い音: 澄んだ正弦波と、少しずれた倍音"""
+    key = ('box', midi, beats)
+    if key not in _cache:
+        f = hz(midi)
+        length = beats * BEAT + 2.5
+        out = []
+        for i in range(int(length * RATE)):
+            t = i / RATE
+            env = math.exp(-t / 1.4) * min(1.0, t / 0.004) * min(1.0, (length - t) / 0.5)
+            out.append(env * (math.sin(2 * math.pi * f * t) + 0.18 * math.sin(2 * math.pi * f * 4.02 * t)))
+        _cache[key] = out
+    return _cache[key]
+
+
+def pad(chord):
+    """ストリングス風のパッド: 少しずつ音程をずらした正弦波を重ね、ゆっくり出入りする"""
+    length = CHORD_SEC + 3.0
+    out = [0.0] * int(length * RATE)
+    for k, midi in enumerate(chord):
+        f = hz(midi)
+        amp = 0.5 if k == 0 else 0.22
+        for detune in (0.997, 1.0, 1.003):
+            w = 2 * math.pi * f * detune / RATE
+            for i in range(len(out)):
+                out[i] += amp * math.sin(w * i + k)
+    for i in range(len(out)):
+        t = i / RATE
+        out[i] *= min(1.0, t / 2.0) ** 2 * min(1.0, (length - t) / 2.5) ** 2
+    return out
+
+
+def reverb(buf):
+    """シュレーダー型の残響（くし形フィルタ 4 つ + オールパス 2 つ）。左右で遅れを変えて広がりを出す。
+    1 周を 2 回つなげて処理し、後半を使う（繰り返したときに残響が途切れない）"""
+    n = len(buf) // 2
+    out = array.array('f', bytes(4 * 2 * n))
+    for ch, combs, allps in ((0, (1116, 1188, 1277, 1356), (556, 441)),
+                             (1, (1139, 1211, 1300, 1379), (579, 464))):
+        x = [buf[2 * (i % n) + ch] for i in range(2 * n)]
+        wet = [0.0] * (2 * n)
+        for d in combs:
+            d = d * RATE // 44100 * 2
+            line = [0.0] * d
+            p = 0
+            low = 0.0
+            for i in range(2 * n):
+                y = line[p]
+                low = 0.7 * y + 0.3 * low  # 高い音ほど早く消える
+                line[p] = x[i] + 0.84 * low
+                p = p + 1 if p + 1 < d else 0
+                wet[i] += y
+        for d in allps:
+            d = d * RATE // 44100
+            line = [0.0] * d
+            p = 0
+            for i in range(2 * n):
+                b = line[p]
+                v = wet[i] + 0.5 * b
+                line[p] = v
+                wet[i] = b - 0.5 * v
+                p = p + 1 if p + 1 < d else 0
+        for i in range(n):
+            out[2 * i + ch] = 0.75 * x[n + i] + 0.09 * wet[n + i]
+    return out
 
 
 def main():
@@ -33,48 +157,32 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     total_sec = CHORD_SEC * len(CHORDS)
     n = int(total_sec * RATE)
-    buf = array.array('f', bytes(4 * n))
+    buf = array.array('f', bytes(4 * 2 * n))
 
-    # 和音のパッド: 各音を 2 本の少しずらした正弦波で鳴らし、ゆっくり揺らす
     for ci, chord in enumerate(CHORDS):
-        start = ci * CHORD_SEC - OVERLAP_SEC / 2
-        length = CHORD_SEC + OVERLAP_SEC
-        for k, f in enumerate(chord):
-            amp = 0.06 / (1 + 0.25 * k)
-            for detune in (0.998, 1.002):
-                w = 2 * math.pi * f * detune / RATE
-                lfo = 2 * math.pi * (0.07 + 0.013 * k) / RATE
-                for i in range(int(length * RATE)):
-                    t = i / RATE
-                    # 上がり・下がりは OVERLAP_SEC かけて sin² で
-                    if t < OVERLAP_SEC:
-                        env = math.sin(0.5 * math.pi * t / OVERLAP_SEC) ** 2
-                    elif t > length - OVERLAP_SEC:
-                        env = math.sin(0.5 * math.pi * (length - t) / OVERLAP_SEC) ** 2
-                    else:
-                        env = 1.0
-                    j = (int(start * RATE) + i) % n  # 1 周の端で折り返してつなげる
-                    buf[j] += amp * env * (0.8 + 0.2 * math.sin(lfo * i + k)) * math.sin(w * i + k * 1.7)
+        t0 = ci * CHORD_SEC
+        add(buf, t0 - 1.5, pad(chord), 0.05, 0.0)
+        # ピアノ: 低音を 1 拍目に、上の音を 8 分音符で上り下り
+        add(buf, t0, piano(chord[0] - 12 if chord[0] > 40 else chord[0], 4.0), 0.10, -0.2)
+        for b in range(16):
+            midi = chord[ARP[b % 8]]
+            # 2 回目は 1 オクターブ上で、少し弱く
+            add(buf, t0 + b * BEAT, piano(midi + (12 if b >= 8 else 0)), 0.075 if b < 8 else 0.055,
+                -0.4 + 0.8 * (ARP[b % 8] - 1) / 3)
+        for beat, midi, beats in MELODY[ci]:
+            add(buf, t0 + beat * BEAT, musicbox(midi, beats), 0.05, 0.3)
 
-    # 鈴の音: 1 周に 10 回、ランダムな時刻に短く鳴らす
-    rng = random.Random(20261102)
-    for _ in range(10):
-        f = rng.choice(BELL_NOTES)
-        at = int(rng.uniform(0.5, total_sec - 5.0) * RATE)
-        w = 2 * math.pi * f / RATE
-        for i in range(int(4.0 * RATE)):
-            env = math.exp(-i / (0.9 * RATE)) * min(1.0, i / (0.01 * RATE))
-            buf[(at + i) % n] += 0.035 * env * (math.sin(w * i) + 0.3 * math.sin(2.76 * w * i))
-
+    print('reverb ...')
+    buf = reverb(buf)
     peak = max(abs(x) for x in buf) or 1.0
-    gain = 0.5 / peak  # 余裕を持たせる（音量はアプリ側で決める）
+    gain = 0.95 / peak  # 音量はアプリ側（台本の bgm_volume）で決める
     pcm = array.array('h', (int(max(-1.0, min(1.0, x * gain)) * 32767) for x in buf))
     with wave.open(str(out), 'wb') as f:
-        f.setnchannels(1)
+        f.setnchannels(2)
         f.setsampwidth(2)
         f.setframerate(RATE)
         f.writeframes(pcm.tobytes())
-    print(f'wrote {out} ({total_sec:.0f} s loop)')
+    print(f'wrote {out} ({total_sec:.0f} s loop, stereo)')
 
 
 if __name__ == '__main__':

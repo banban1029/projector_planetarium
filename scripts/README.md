@@ -6,7 +6,8 @@
 |---|---|
 | [fetch_hyg.py](fetch_hyg.py) | HYG 星表をダウンロード（`data/raw/`）し、描画用の `data/stars.csv` に変換する |
 | [make_show_audio.ps1](make_show_audio.ps1) | 上映の台本からナレーション（Windows の日本語音声）を作り、BGM を用意する。場面より長いナレーションは警告する |
-| [make_bgm.py](make_bgm.py) | 上映の BGM（64 秒の繰り返しの環境音）を作曲して WAV に書く。標準ライブラリだけで動く |
+| [make_bgm.py](make_bgm.py) | 上映の BGM（64 秒の繰り返しのロマンチックなピアノ曲、ステレオ）を作曲して WAV に書く。標準ライブラリだけで動く |
+| [loudness.py](loudness.py) | WAV の音量を何倍かにする（割れないように先読みリミッタ）。ナレーションを大きくするのに使う |
 | [fetch_constellations.py](fetch_constellations.py) | d3-celestial の星座データをダウンロードし、`data/constellation_lines.csv`・`data/constellation_names.csv` に変換する |
 
 ## fetch_hyg.py

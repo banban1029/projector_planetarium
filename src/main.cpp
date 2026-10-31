@@ -470,9 +470,9 @@ int main(int argc, char** argv) {
             if (opts.dumpNarration) {
                 // タブ区切り: 先頭の # 行が設定、続いて「場面番号 秒数 読み上げ文」
                 const auto& a = cfg.scenario.audio;
-                std::printf("#title\t%s\n#dir\t%s\n#voice\t%s\n#rate\t%d\n#bgm\t%s\n#total\t%.0f\n",
-                            cfg.scenario.title.c_str(), a.narrationDir.c_str(), a.voice.c_str(), a.rate, a.bgm.c_str(),
-                            total);
+                std::printf("#title\t%s\n#dir\t%s\n#voice\t%s\n#rate\t%d\n#gain\t%g\n#bgm\t%s\n#total\t%.0f\n",
+                            cfg.scenario.title.c_str(), a.narrationDir.c_str(), a.voice.c_str(), a.rate,
+                            a.narrationGain, a.bgm.c_str(), total);
                 for (size_t i = 0; i < cfg.scenario.steps.size(); ++i) {
                     const auto& st = cfg.scenario.steps[i];
                     std::printf("%02zu\t%.1f\t%s\n", i + 1, st.duration_sec, narrationText(st).c_str());
@@ -664,7 +664,8 @@ int main(int argc, char** argv) {
             const bool playing = app.scenario->playing();
             if (playing && !wasPlaying && !showAudio.bgm.empty()) {
                 if (std::filesystem::exists(showFile(showAudio.bgm))) {
-                    audio->playBgm(showFile(showAudio.bgm), static_cast<float>(showAudio.bgmVolume));
+                    audio->playBgm(showFile(showAudio.bgm), static_cast<float>(showAudio.bgmVolume),
+                                   static_cast<float>(showAudio.bgmDuck));
                 } else {
                     std::fprintf(stderr, "[audio] %s not found (run scripts/make_show_audio.ps1)\n", showAudio.bgm.c_str());
                 }

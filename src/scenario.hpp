@@ -23,6 +23,7 @@ struct ScenarioStep {
     double meteorRate = -1.0;            // 流れ星の数 [個/秒]（負ならモードの既定）
     std::vector<double> meteorRadiant;   // 流れ星の放射点 [赤経, 赤緯]（度）
     int credits = -1;                    // クレジット表示 0/1
+    int compass = -1;                    // 方位の文字（北・東・南・西） 0/1
 };
 
 // 上映の音（scripts/make_show_audio.ps1 が作るファイルの場所と、読み上げの声）
@@ -32,6 +33,8 @@ struct ScenarioAudio {
     int rate = 0;              // 話す速さ（-10〜10）
     std::string bgm;           // 繰り返し流す BGM（WAV）
     double bgmVolume = 0.3;
+    double bgmDuck = 0.4;      // ナレーション中の BGM の音量（bgmVolume に掛ける）
+    double narrationGain = 1.0;  // ナレーションを作るときに掛ける音量（割れないようリミッタをかける）
 };
 
 struct Scenario {

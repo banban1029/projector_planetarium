@@ -259,6 +259,7 @@ void applyScenarioStep(AppState& app, const ScenarioStep& s) {
     if (s.constellations >= 0) app.overlays.constellations = s.constellations != 0;
     if (s.constellationNames >= 0) app.overlays.constellationNames = s.constellationNames != 0;
     if (s.labels >= 0) app.overlays.labels = s.labels != 0;
+    if (s.compass >= 0) app.overlays.compass = s.compass != 0;
     if (s.credits >= 0) app.overlays.credits = s.credits != 0;
     auto& show = app.show;
     show.subtitle = s.subtitle;

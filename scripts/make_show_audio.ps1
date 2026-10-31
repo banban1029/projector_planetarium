@@ -17,9 +17,16 @@ if (-not (Test-Path $exe)) {
 }
 $previous = [Console]::OutputEncoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$lines = & $exe --scenario $Show --dump-narration
+$lines = $null
+# Release が Windows のスマート アプリ コントロールに止められたときは Debug で読む（止められても台本は読めればよい）
+foreach ($candidate in @($exe, (Join-Path $root 'build\debug\planetarium.exe'))) {
+    if (-not (Test-Path $candidate)) { continue }
+    try { $lines = & $candidate --scenario $Show --dump-narration } catch { Write-Host "cannot run $candidate ($($_.Exception.Message.Split([Environment]::NewLine)[0]))"; continue }
+    if ($LASTEXITCODE -eq 0) { break }
+    $lines = $null
+}
 [Console]::OutputEncoding = $previous
-if ($LASTEXITCODE -ne 0) { throw "cannot read $Show" }
+if (-not $lines) { throw "cannot read $Show" }
 
 $settings = @{}
 $steps = @()
@@ -44,6 +51,7 @@ if ($settings['voice']) {
     }
 }
 $synth.Rate = [int]$settings['rate']
+$gain = if ($settings['gain']) { [double]$settings['gain'] } else { 1.0 }
 $format = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(22050, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen, [System.Speech.AudioFormat.AudioChannel]::Mono)
 
 $made = 0
@@ -55,13 +63,19 @@ foreach ($s in $steps) {
         Remove-Item $wav, $txt -ErrorAction SilentlyContinue
         continue
     }
-    # 読み上げ文が前回と同じなら作り直さない
-    $same = (Test-Path $wav) -and (Test-Path $txt) -and ((Get-Content $txt -Raw -Encoding UTF8).TrimEnd() -eq $s.Text)
+    # 読み上げ文・声の速さ・音量が前回と同じなら作り直さない
+    $key = "rate=$($settings['rate']) gain=$gain`n$($s.Text)"
+    $same = (Test-Path $wav) -and (Test-Path $txt) -and ((Get-Content $txt -Raw -Encoding UTF8).TrimEnd() -eq $key)
     if ($Force -or -not $same) {
         $synth.SetOutputToWaveFile($wav, $format)
         $synth.Speak($s.Text)
         $synth.SetOutputToNull()
-        [System.IO.File]::WriteAllText($txt, $s.Text, (New-Object System.Text.UTF8Encoding($false)))
+        # 大きくする（割れないようにリミッタをかける）
+        if ($gain -ne 1) {
+            python -I scripts/loudness.py $wav $gain
+            if ($LASTEXITCODE -ne 0) { throw 'loudness.py failed' }
+        }
+        [System.IO.File]::WriteAllText($txt, $key, (New-Object System.Text.UTF8Encoding($false)))
         $made++
     }
     # 長さ（44 バイトのヘッダ以降が 16bit モノラル）を場面の長さと比べる
@@ -74,7 +88,9 @@ $synth.Dispose()
 
 if ($settings['bgm']) {
     $bgm = Join-Path $root $settings['bgm']
-    if ($Force -or -not (Test-Path $bgm)) {
+    # 作曲のスクリプトが新しくなっていたら作り直す
+    $stale = (Test-Path $bgm) -and ((Get-Item 'scripts/make_bgm.py').LastWriteTime -gt (Get-Item $bgm).LastWriteTime)
+    if ($Force -or $stale -or -not (Test-Path $bgm)) {
         python -I scripts/make_bgm.py $bgm
         if ($LASTEXITCODE -ne 0) { throw 'make_bgm.py failed' }
     }

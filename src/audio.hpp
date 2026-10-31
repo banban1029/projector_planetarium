@@ -13,7 +13,8 @@ public:
 
     bool ok() const { return ok_; }
 
-    void playBgm(const std::string& path, float volume);  // 繰り返し再生
+    // 繰り返し再生。duck はナレーション中の音量の割合
+    void playBgm(const std::string& path, float volume, float duck = 0.4f);
     void stopBgm();
     void playNarration(const std::string& path);           // 前のナレーションは止める
     void stopNarration();
@@ -29,5 +30,5 @@ private:
     std::unique_ptr<Impl> impl_;
     bool ok_ = false;
     bool muted_ = false;
-    float bgmVolume_ = 0.3f, bgmCurrent_ = 0.0f;
+    float bgmVolume_ = 0.3f, bgmDuck_ = 0.4f, bgmCurrent_ = 0.0f;
 };

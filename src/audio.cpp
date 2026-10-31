@@ -26,7 +26,7 @@ AudioPlayer::~AudioPlayer() {
     ma_engine_uninit(&impl_->engine);
 }
 
-void AudioPlayer::playBgm(const std::string& path, float volume) {
+void AudioPlayer::playBgm(const std::string& path, float volume, float duck) {
     if (!ok_) return;
     stopBgm();
     if (ma_sound_init_from_file(&impl_->engine, path.c_str(), MA_SOUND_FLAG_STREAM, nullptr, nullptr, &impl_->bgm) !=
@@ -36,6 +36,7 @@ void AudioPlayer::playBgm(const std::string& path, float volume) {
     }
     impl_->hasBgm = true;
     bgmVolume_ = volume;
+    bgmDuck_ = duck;
     bgmCurrent_ = 0.0f;  // 0 からゆっくり上げる（フェードイン）
     ma_sound_set_looping(&impl_->bgm, MA_TRUE);
     ma_sound_set_volume(&impl_->bgm, 0.0f);
@@ -79,9 +80,9 @@ void AudioPlayer::setMuted(bool muted) {
 
 void AudioPlayer::update(double dt) {
     if (!impl_->hasBgm) return;
-    // ナレーション中は BGM を 4 割に下げる。上げ下げは 1 秒あたり 0.6 まで（急に変わらないように）
-    const float target = muted_ ? 0.0f : bgmVolume_ * (narrating() ? 0.4f : 1.0f);
-    const float step = static_cast<float>(0.6 * dt);
+    // ナレーション中は BGM を bgmDuck_ 倍に下げる。上げ下げは 1 秒で音量の 1.5 倍分まで（急に変わらないように）
+    const float target = muted_ ? 0.0f : bgmVolume_ * (narrating() ? bgmDuck_ : 1.0f);
+    const float step = static_cast<float>(1.5 * bgmVolume_ * dt);
     bgmCurrent_ += std::clamp(target - bgmCurrent_, -step, step);
     ma_sound_set_volume(&impl_->bgm, bgmCurrent_);
 }

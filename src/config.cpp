@@ -33,6 +33,8 @@ Scenario parseScenario(const YAML::Node& node) {
         read(a, "rate", sc.audio.rate);
         read(a, "bgm", sc.audio.bgm);
         read(a, "bgm_volume", sc.audio.bgmVolume);
+        read(a, "bgm_duck", sc.audio.bgmDuck);
+        read(a, "narration_gain", sc.audio.narrationGain);
     }
     for (const auto& n : node["steps"]) {
         ScenarioStep st;
@@ -44,6 +46,7 @@ Scenario parseScenario(const YAML::Node& node) {
         read(n, "message", st.message);
         if (n["constellations"]) st.constellations = n["constellations"].as<bool>() ? 1 : 0;
         if (n["labels"]) st.labels = n["labels"].as<bool>() ? 1 : 0;
+        if (n["compass"]) st.compass = n["compass"].as<bool>() ? 1 : 0;
         if (n["constellation_names"]) st.constellationNames = n["constellation_names"].as<bool>() ? 1 : 0;
         if (n["credits"]) st.credits = n["credits"].as<bool>() ? 1 : 0;
         read(n, "subtitle", st.subtitle);
