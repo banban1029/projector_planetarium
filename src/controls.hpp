@@ -53,8 +53,6 @@ struct AppState {
 void installControls(AppState& app);
 // 別のウィンドウ（操作パネル）でも同じキー操作を受け付ける
 void attachControls(GLFWwindow* window, AppState& app);
-// 全画面のときはマウスカーソルを隠す（星空の上に矢印が出ないように）
-void updateCursor(AppState& app);
 // キー 1 回分の処理（GLFW のキーコールバックから呼ぶ。テストからも呼ぶ。window が nullptr でもよい）
 void handleKey(AppState& app, int key, int action, int mods);
 void printHelp();

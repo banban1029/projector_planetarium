@@ -176,7 +176,6 @@ void handleKey(AppState& app, int key, int action, int mods) {
         case GLFW_KEY_V: toggleProjection(app); break;
         case GLFW_KEY_F11:
             toggleFullscreen(app);
-            updateCursor(app);
             std::printf("[view] fullscreen toggled\n");
             break;
         case GLFW_KEY_X:
@@ -201,13 +200,6 @@ void installControls(AppState& app) { attachControls(app.window, app); }
 void attachControls(GLFWwindow* window, AppState& app) {
     glfwSetWindowUserPointer(window, &app);
     glfwSetKeyCallback(window, onKey);
-}
-
-void updateCursor(AppState& app) {
-    if (!app.window) return;
-    const bool fullscreen = glfwGetWindowMonitor(app.window) != nullptr;
-    glfwSetInputMode(app.window, GLFW_CURSOR, fullscreen ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
-    std::printf("[view] cursor %s\n", fullscreen ? "hidden" : "shown");
 }
 
 void printHelp() {
