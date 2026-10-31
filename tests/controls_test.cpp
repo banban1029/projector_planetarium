@@ -149,8 +149,19 @@ int main() {
                                                     app.overlays.constellationNames && app.overlays.labels,
           localTime(app));
     check("scenario message is shown", app.toast == "テスト場面", app.toast);
+    press(app, GLFW_KEY_SPACE);
+    check("Space pauses the show and its time", app.scenario->paused() && app.clock.paused());
+    check("paused show does not advance", app.scenario->update(10.0) == nullptr);
+    press(app, GLFW_KEY_SPACE);
+    check("Space again resumes the show and its time", !app.scenario->paused() && !app.clock.paused());
+    check("resumed show advances", app.scenario->update(10.0) != nullptr);
+    press(app, GLFW_KEY_SPACE);
     press(app, GLFW_KEY_P);
     check("P stops scenario", !app.scenario->playing());
+    check("stopping a paused show resumes time", !app.scenario->paused() && !app.clock.paused());
+    press(app, GLFW_KEY_SPACE);
+    check("Space without a show pauses time only", app.clock.paused());
+    press(app, GLFW_KEY_SPACE);
 
     // ウィンドウが無くても落ちない
     press(app, GLFW_KEY_F11);

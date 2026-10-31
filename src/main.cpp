@@ -661,7 +661,8 @@ int main(int argc, char** argv) {
         }
         if (const ScenarioStep* step = app.scenario->update(dt)) applyScenarioStep(app, *step);
         if (audio) {
-            // 再生を始めたら BGM、止めたら音を止める。場面が変わったらその場面のナレーション
+            // 再生を始めたら BGM、止めたら音を止める。場面が変わったらその場面のナレーション。Space の一時停止では音も止める
+            audio->setPaused(app.scenario->paused());
             const bool playing = app.scenario->playing();
             if (playing && !wasPlaying && !showAudio.bgm.empty()) {
                 if (std::filesystem::exists(showFile(showAudio.bgm))) {

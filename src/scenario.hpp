@@ -57,11 +57,14 @@ public:
 
     // 再生開始（先頭の場面を返す）。場面が無ければ nullptr
     const ScenarioStep* start();
-    void stop() { playing_ = false; }
+    void stop() { playing_ = paused_ = false; }
+    // 一時停止中は場面が進まない（再開すると続きから）
+    void setPaused(bool paused) { paused_ = paused && playing_; }
     // 次の場面に切り替わったらその場面、それ以外は nullptr。最後まで行き loop でなければ停止
     const ScenarioStep* update(double realDt);
 
     bool playing() const { return playing_; }
+    bool paused() const { return paused_; }
     const Scenario& scenario() const { return scenario_; }
     size_t index() const { return index_; }
     size_t size() const { return scenario_.steps.size(); }
@@ -69,6 +72,7 @@ public:
 private:
     Scenario scenario_;
     bool playing_ = false;
+    bool paused_ = false;
     size_t index_ = 0;
     double elapsed_ = 0.0;
 };

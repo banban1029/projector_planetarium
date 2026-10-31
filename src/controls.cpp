@@ -87,6 +87,8 @@ void toggleScenario(AppState& app) {
         return;
     }
     if (app.scenario->playing()) {
+        // 一時停止中に止めたら、時間も動かしておく
+        if (app.scenario->paused() && app.clock.paused()) app.clock.togglePause();
         app.scenario->stop();
         clearShow(app);
         std::printf("[scenario] stop\n");
@@ -145,7 +147,19 @@ void handleKey(AppState& app, int key, int action, int mods) {
             break;
         case GLFW_KEY_UP: app.clock.faster(); speedChanged(app); break;
         case GLFW_KEY_DOWN: app.clock.slower(); speedChanged(app); break;
-        case GLFW_KEY_SPACE: app.clock.togglePause(); speedChanged(app); break;
+        case GLFW_KEY_SPACE:
+            if (app.scenario->playing()) {
+                // 上映中は、場面の進行・時間・音（main が scenario の paused を見て止める）をまとめて止める
+                const bool pause = !app.scenario->paused();
+                app.scenario->setPaused(pause);
+                if (app.clock.paused() != pause) app.clock.togglePause();
+                std::printf("[show] %s\n", pause ? "paused" : "resumed");
+                showToast(app, pause ? "上映 一時停止（Space で再開）" : "上映 再開");
+            } else {
+                app.clock.togglePause();
+                speedChanged(app);
+            }
+            break;
         case GLFW_KEY_R: app.clock.toggleReverse(); speedChanged(app); break;
         case GLFW_KEY_N:
             app.clock.setNow();
@@ -226,7 +240,7 @@ void printHelp() {
         "  T           season auto tour on/off\n"
         "  L / Shift+L next / previous location\n"
         "  Up / Down   time speed step up / down\n"
-        "  Space       pause / resume\n"
+        "  Space       pause / resume (during a show: scenes, time and sound)\n"
         "  R           reverse time\n"
         "  Left/Right  -/+ 1 hour (Shift: 1 day)\n"
         "  N           back to now, x1\n"
@@ -343,7 +357,8 @@ std::vector<std::string> operatorLines(const AppState& app) {
                   onOff(o.grid), onOff(o.info));
     lines.push_back(buf);
     if (app.scenario && app.scenario->playing()) {
-        std::snprintf(buf, sizeof(buf), "シナリオ再生中: %zu / %zu 場面", app.scenario->index() + 1, app.scenario->size());
+        std::snprintf(buf, sizeof(buf), "シナリオ%s: %zu / %zu 場面", app.scenario->paused() ? "一時停止中（Space で再開）" : "再生中",
+                      app.scenario->index() + 1, app.scenario->size());
         lines.push_back(buf);
         if (!app.show.subtitle.empty()) {
             std::string sub = app.show.subtitle;

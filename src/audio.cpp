@@ -78,8 +78,24 @@ void AudioPlayer::setMuted(bool muted) {
     if (impl_->hasNarration) ma_sound_set_volume(&impl_->narration, muted ? 0.0f : 1.0f);
 }
 
+void AudioPlayer::setPaused(bool paused) {
+    if (!ok_ || paused == paused_) return;
+    paused_ = paused;
+    // ma_sound_stop は再生位置を保つので、ma_sound_start で続きから鳴る。
+    // 止めた時点で終わっていたナレーションは、もう一度鳴らさない（終わった音を start すると頭から鳴るため）
+    if (paused) {
+        narrationWasPlaying_ = narrating();
+        if (impl_->hasBgm) ma_sound_stop(&impl_->bgm);
+        if (narrationWasPlaying_) ma_sound_stop(&impl_->narration);
+    } else {
+        if (impl_->hasBgm) ma_sound_start(&impl_->bgm);
+        if (narrationWasPlaying_ && impl_->hasNarration) ma_sound_start(&impl_->narration);
+        narrationWasPlaying_ = false;
+    }
+}
+
 void AudioPlayer::update(double dt) {
-    if (!impl_->hasBgm) return;
+    if (!impl_->hasBgm || paused_) return;
     // ナレーション中は BGM を bgmDuck_ 倍に下げる。上げ下げは 1 秒で音量の 1.5 倍分まで（急に変わらないように）
     const float target = muted_ ? 0.0f : bgmVolume_ * (narrating() ? bgmDuck_ : 1.0f);
     const float step = static_cast<float>(1.5 * bgmVolume_ * dt);

@@ -9,13 +9,14 @@ std::string narrationText(const ScenarioStep& step) {
 const ScenarioStep* ScenarioPlayer::start() {
     if (scenario_.steps.empty()) return nullptr;
     playing_ = true;
+    paused_ = false;
     index_ = 0;
     elapsed_ = 0.0;
     return &scenario_.steps[0];
 }
 
 const ScenarioStep* ScenarioPlayer::update(double realDt) {
-    if (!playing_) return nullptr;
+    if (!playing_ || paused_) return nullptr;
     elapsed_ += realDt;
     if (elapsed_ < scenario_.steps[index_].duration_sec) return nullptr;
     elapsed_ = 0.0;

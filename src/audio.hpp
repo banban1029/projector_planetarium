@@ -21,6 +21,8 @@ public:
     bool narrating() const;
     void setMuted(bool muted);
     bool muted() const { return muted_; }
+    // 一時停止（BGM もナレーションも、再開すると続きから鳴る）
+    void setPaused(bool paused);
 
     // 毎フレーム呼ぶ（BGM の音量をなめらかに上げ下げする）
     void update(double dt);
@@ -30,5 +32,6 @@ private:
     std::unique_ptr<Impl> impl_;
     bool ok_ = false;
     bool muted_ = false;
+    bool paused_ = false, narrationWasPlaying_ = false;
     float bgmVolume_ = 0.3f, bgmDuck_ = 0.4f, bgmCurrent_ = 0.0f;
 };
