@@ -558,6 +558,7 @@ int main(int argc, char** argv) {
     app.overlays.labels = r.show_labels || opts.labels;
     app.overlays.info = r.show_info || opts.info;
     app.overlays.testPattern = opts.testPattern;
+    app.overlays.whiteLevel = static_cast<float>(r.white_level);
     app.overlays.credits = opts.credits;
     if (!app.clock.setLocalString(cfg.time.start)) {
         std::fprintf(stderr, "invalid time.start: %s (using now)\n", cfg.time.start.c_str());

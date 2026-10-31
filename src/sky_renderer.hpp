@@ -36,6 +36,7 @@ struct Overlays {
     bool info = false;                // 日時などの画面表示
     bool credits = false;             // クレジット（データの出典）
     bool testPattern = false;         // 投影の調整用テストパターン
+    float whiteLevel = 1.0f;          // 出力の最大値（render.white_level。[ ] キーで調整）
 };
 
 struct FrameInput {

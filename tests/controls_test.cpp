@@ -4,6 +4,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -125,6 +126,11 @@ int main() {
     press(app, GLFW_KEY_X);
     check("X toggles test pattern", app.overlays.testPattern);
     press(app, GLFW_KEY_X);
+    app.overlays.whiteLevel = 0.82f;
+    press(app, GLFW_KEY_LEFT_BRACKET);
+    check("[ lowers white level by 0.02", std::fabs(app.overlays.whiteLevel - 0.80f) < 1e-4f);
+    for (int i = 0; i < 20; ++i) press(app, GLFW_KEY_RIGHT_BRACKET);
+    check("] raises white level up to 1.0", app.overlays.whiteLevel == 1.0f);
     press(app, GLFW_KEY_F12);
     check("F12 toggles credits", app.overlays.credits && !app.overlays.testPattern);
     press(app, GLFW_KEY_F12);

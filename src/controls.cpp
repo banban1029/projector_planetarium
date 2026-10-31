@@ -2,6 +2,8 @@
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #include "modes.hpp"
@@ -182,6 +184,17 @@ void handleKey(AppState& app, int key, int action, int mods) {
             o.testPattern = !o.testPattern;
             showToast(app, std::string("テストパターン ") + onOff(o.testPattern));
             break;
+        case GLFW_KEY_LEFT_BRACKET:
+        case GLFW_KEY_RIGHT_BRACKET: {
+            // 出力の最大値（プロジェクタの白とび対策）。テストパターンを見ながら合わせ、値を config に書く
+            const float step = key == GLFW_KEY_RIGHT_BRACKET ? 0.02f : -0.02f;
+            o.whiteLevel = std::clamp(std::round((o.whiteLevel + step) * 50.0f) / 50.0f, 0.5f, 1.0f);
+            char text[96];
+            std::snprintf(text, sizeof(text), "白の最大値 %.2f（render.white_level）", o.whiteLevel);
+            std::printf("[view] white_level %.2f\n", o.whiteLevel);
+            showToast(app, text);
+            break;
+        }
         case GLFW_KEY_B:
             app.audioMuted = !app.audioMuted;
             showToast(app, std::string("音 ") + onOff(!app.audioMuted));
@@ -225,6 +238,7 @@ void printHelp() {
         "  P           play / stop scenario\n"
         "  V           fisheye / perspective\n"
         "  X           test pattern (projector adjustment)\n"
+        "  [ / ]       white level down / up (render.white_level)\n"
         "  F12         credits\n"
         "  B           sound on/off (show narration and music)\n"
         "  F11         fullscreen\n"
@@ -339,7 +353,12 @@ std::vector<std::string> operatorLines(const AppState& app) {
     } else {
         lines.push_back("シナリオ: 停止中（P で再生）");
     }
-    if (o.testPattern) lines.push_back("#テストパターン表示中（X で戻る）");
+    if (o.testPattern) {
+        lines.push_back("#テストパターン表示中（X で戻る）");
+        char text[96];
+        std::snprintf(text, sizeof(text), "白の最大値 %.2f（[ ] で調整）", o.whiteLevel);
+        lines.push_back(text);
+    }
     lines.push_back("");
     lines.push_back("0-8 モード   M 次のモード   L 観測地   S 次の季節   F1-F5 季節   T 季節の自動巡回");
     lines.push_back("↑↓ 時間倍率   Space 一時停止   R 逆再生   ←→ ±1時間   N 現在時刻");
