@@ -32,11 +32,13 @@ OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影
 | [docs/](docs/README.md) | 設計ドキュメント（工夫点・アルゴリズム）と画像 |
 | [.vscode/](.vscode/README.md) | VS Code の設定（ビルド・デバッグ） |
 | `build/` | ビルド結果（git 管理外。消しても `run.sh` / `run.ps1` で作り直せる） |
-| `dist/` | 配布用フォルダ（git 管理外。`cmake --install` で作る。[§8](#8-配布用フォルダを作るpath-なしで動く)） |
+| `dist/` | 配布用フォルダ（git 管理外。`cmake --install` で作る。[§9](#9-配布用フォルダを作るpath-なしで動く)） |
 
 | ファイル | 内容 |
 |---|---|
 | `run.sh` / `run.ps1` | ビルドして起動するスクリプト（MSYS2 Bash 用 / PowerShell 用） |
+| `show.sh` / `show.ps1` | 解説つき上映「大阪から阿智村へ ― 11 月の星空」（約 5 分）を流すスクリプト |
+| [shows/](shows/autumn_2026.md) | 上映の台本（YAML）とストーリー構成（.md） |
 | `CMakeLists.txt` / `CMakePresets.json` | ビルド設定 |
 | [PLAN.md](PLAN.md) | 開発方針・マイルストーン・TODO |
 | [LICENSE](LICENSE) | MIT License（データの出典とライセンスは下の「ライセンスとクレジット」） |
@@ -171,6 +173,10 @@ cmake --build --preset mingw-debug   # ビルド
 | `--play` | 起動してすぐシナリオを再生する（上映用） |
 | `--operator` | 操作パネル（2 つ目のウィンドウ）を出す。`output: projector` のときは自動で出る |
 | `--test-pattern` / `--credits` | テストパターン / クレジットを表示して起動 |
+| `--scenario shows/xxx.yaml` | 上映の台本を読む（`--play` と一緒に使う。`show.sh` / `show.ps1` が指定している） |
+| `--seek 120` | 台本をその秒数まで進めてから始める（上映の途中の場面を確かめる） |
+| `--dump-names "Vega,Saturn"` | `--dump-positions` と一緒に使い、名前で指定した星・惑星の高度・方位も表示する（字幕の確認用） |
+| `--dump-narration` | `--scenario` の台本の読み上げ文を表示して終了する（音声を作るスクリプトが使う） |
 | `--screenshot out.png` | 描いた画面を PNG（`.ppm` なら PPM）で保存してすぐ終了する。検証・資料作り用 |
 | `--wait 2` | `--screenshot` の前に待つ秒数（流れ星・ワープなど動く演出を撮るとき） |
 | `--record 名前 --count 8 --interval 0.5` | 一定間隔で連続撮影する（`名前_000.png` 〜）。動きの確認用 |
@@ -276,6 +282,7 @@ font: C:/Windows/Fonts/BIZ-UDGothicR.ttc
 | `F11` | 全画面切り替え（ウィンドウが載っているモニタで全画面になる。全画面ではマウスカーソルを隠す） |
 | `X` | テストパターン（プロジェクタの調整用。灰色の段階・暗部の段階・ピント・格子・方位） |
 | `F12` | クレジット（データとライブラリの出典） |
+| `B` | 上映の音（ナレーション・BGM）ON/OFF |
 | `H` | キー一覧をターミナルに表示 |
 | `Esc` | 終了 |
 
@@ -404,7 +411,32 @@ YAML を変えたら **再起動するだけ**でよい（再ビルド不要）�
 
 ---
 
-## 7. 上映の前に（プロジェクタにつなぐとき）
+## 7. 解説つき上映
+
+字幕・ナレーション・BGM・季節の目印（夏の大三角など）・星を指す円を使った 5 分の上映を、1 つのコマンドで流せる。
+初回は Windows の日本語音声でナレーションを作り、BGM を作曲する（1 分ほど。2 回目からは台本が変わった場面だけ作り直す）。
+
+```sh
+./show.sh                    # MSYS2 Bash
+./show.sh --seek 120         # 2 分の場面から（確認用）
+```
+
+```powershell
+.\show.ps1                   # PowerShell
+```
+
+| 上映 | 内容 |
+|---|---|
+| [大阪から阿智村へ ― 11 月の星空](shows/autumn_2026.md) | 2026 年 11 月 2 日 22:00。街明かりの大阪から、日本一の星空の阿智村へ。天の川、夏の大三角、秋の四辺形、北極星の見つけ方、土星、夜明け前の月・火星・木星、冬の大三角・冬のダイヤモンド、おうし座流星群（5 分） |
+
+上映の日時と場所は台本の先頭（`date`・`location`）で決める。天気は再現しない（いつも晴天）。
+上映中も、ふつうのキー操作（`P` で停止、`B` で音 ON/OFF、`F11` で全画面など）が使える。
+台本の書き方（字幕・目印・指す円・目が暗さに慣れる演出・流れ星）は [shows/autumn_2026.md](shows/autumn_2026.md) の「使う機能」。
+季節の目印は [data/asterisms.csv](data/asterisms.csv) に足せる。
+
+---
+
+## 8. 上映の前に（プロジェクタにつなぐとき）
 
 1. **Windows の通知を止める**：上映中に通知が出ると、星空の上に投影されてしまう。
    設定 → システム → 通知 →「応答不可」をオンにする。
@@ -428,7 +460,7 @@ YAML を変えたら **再起動するだけ**でよい（再ビルド不要）�
 
 ---
 
-## 8. 配布用フォルダを作る（PATH なしで動く）
+## 9. 配布用フォルダを作る（PATH なしで動く）
 
 ビルドしたフォルダの外や、MSYS2 が入っていない PC で動かすときは、必要な DLL・シェーダ・データ・設定を
 1 つのフォルダにまとめる。
@@ -457,6 +489,9 @@ cmake --install build/release --prefix dist
 | 星座線・星座名 `data/constellation_*.csv` | [d3-celestial](https://github.com/ofrohn/d3-celestial)（Olaf Frohn） | BSD-3-Clause |
 | `third_party/astronomy/` | [Astronomy Engine](https://github.com/cosinekitty/astronomy)（Don Cross） | MIT |
 | `third_party/stb/` | [stb](https://github.com/nothings/stb)（Sean Barrett） | MIT / Public Domain |
+| `third_party/miniaudio/` | [miniaudio](https://github.com/mackron/miniaudio)（David Reid） | Public Domain / MIT-0 |
+| 上映のナレーション | Windows の音声合成（Microsoft Haruka）で各自の PC で作る。リポジトリには含めない | — |
+| 上映の BGM | `scripts/make_bgm.py` がその場で作曲する（このリポジトリの一部として MIT） | MIT |
 | 日本語フォント | Windows に入っているもの（BIZ UDゴシックなど）を実行時に読む。同梱しない | — |
 
 上映では `F12` で同じ内容を画面に出せる。

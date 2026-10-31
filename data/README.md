@@ -7,6 +7,7 @@
 | [stars.csv](stars.csv) | 恒星表（6.5 等まで 8,920 星）。HYG Database から [scripts/fetch_hyg.py](../scripts/fetch_hyg.py) で作ったもの | 管理する |
 | [constellation_lines.csv](constellation_lines.csv) | 星座線（線分 743 本, J2000）。d3-celestial から [scripts/fetch_constellations.py](../scripts/fetch_constellations.py) で作ったもの | 管理する |
 | [constellation_names.csv](constellation_names.csv) | 星座名（89, 日本語・英語）と名前を置く位置・目立ちやすさ（rank） | 管理する |
+| [asterisms.csv](asterisms.csv) | 季節の目印（夏の大三角・冬のダイヤモンドなど）と案内線。星の英語名を - でつなぐ（このプロジェクトで作成） | 管理する |
 | [star_names.csv](star_names.csv) | 主な星の日本語名（35 星）。HYG の英語名との対応表（このプロジェクトで作成。手で編集してよい） | 管理する |
 | `raw/` | ダウンロードした元データ（`hygdata_v41.csv` 約 34 MB、`d3-celestial/*.json`） | 管理しない（`.gitignore`） |
 

@@ -23,6 +23,16 @@ python tests/verify/verify.py --quick   # 描画速度と Stellarium を省く�
 検証の詳細は [tests/verify/README.md](tests/verify/README.md)、これまでの結果は [docs/verification.md](docs/verification.md)。
 Stellarium が入っていなければ `stellarium` は SKIP になる（失敗ではない）。
 
+## 上映（解説つきシナリオ）
+
+- 台本は `shows/*.yaml`、ストーリー構成は同じ名前の `.md`。`./show.sh`（PowerShell は `.\show.ps1`）で流す。
+- 台本を変えたら `python tests/verify/verify.py --no-build --only show` で、名前が引けるか・長さ・場面の画像を確かめる。
+  場面の画像は `build/verify/sheet_show.png` と `show_arrival.png` を開いて、字幕と演出が台本どおりか見る。
+- 星や惑星の位置・見え方を字幕で言うときは、`--dump-positions --dump-names "Vega,Saturn"` で本当にそうなっているかを先に確かめる。
+- 上映の日時・場所は台本の先頭の `date`・`location`。変えたら字幕の内容も見直す。
+- 音は `scripts/make_show_audio.ps1` が作る（`build/shows/`、git 管理外）。`verify.py --only show` がナレーションの長さが場面に収まるかを確かめる。
+  音の中身（聞き取りやすさ）は人が聞いて確かめる。
+
 ## ビルドと実行
 
 ```sh

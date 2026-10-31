@@ -78,6 +78,10 @@ scenario:
 
 場面が変わるたびに 1 秒かけてフェードする。`P` キーで再生・停止、`--play` で起動と同時に再生。
 
+上映用の項目（字幕 `subtitle`、季節の目印 `asterisms`、指す円 `point`、`fade_sec`、`eye_adapt_sec`、
+`meteor_rate`・`meteor_radiant`、`credits`）もある。台本だけを別のファイルに書いて `--scenario` で読むこともできる。
+例と説明は [shows/autumn_2026.md](../shows/autumn_2026.md)。
+
 よくある変更：
 
 - プロジェクタにつなぐ → `output: projector`、`projector.monitor_index`（起動ログの `monitor[n]` の番号）

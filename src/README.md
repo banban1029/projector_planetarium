@@ -33,6 +33,8 @@ OpenGL を使わない部分は `planetarium_core`（静的ライブラリ）に
 | [line_renderer.hpp](line_renderer.hpp) / [line_renderer.cpp](line_renderer.cpp) | 太さのある線（ジオメトリシェーダ）。大円に沿った分割 `appendArc()` |
 | [text_renderer.hpp](text_renderer.hpp) / [text_renderer.cpp](text_renderer.cpp) | 日本語の文字（stb_truetype でフォントからアトラスを作る） |
 | [projection.hpp](projection.hpp) / [projection.cpp](projection.cpp) | 視点の設定（`ViewSettings`）と投影のパラメータ。シェーダの投影・景色の式の C++ 版（名前の配置に使う） |
+| [audio.hpp](audio.hpp) / [audio.cpp](audio.cpp) | 上映の音（BGM の繰り返し再生、場面ごとのナレーション、ナレーション中に BGM を下げる）。miniaudio |
+| [guide.hpp](guide.hpp) / [guide.cpp](guide.cpp) | 上映の案内：季節の目印の線（順に伸びる）、星を指す円、星・惑星の名前から位置を引く |
 | [labels.hpp](labels.hpp) / [labels.cpp](labels.cpp) | 名前を画面上で重ならないように配置する |
 | [effects.hpp](effects.hpp) / [effects.cpp](effects.cpp) | 流れ星、ワープの光跡（CPU で線を作る） |
 | [modes.hpp](modes.hpp) / [modes.cpp](modes.cpp) | 表示モード（リアル・幻想 8 種）の一覧と、見せ方・演出のパラメータ（`ModeStyle`） |
