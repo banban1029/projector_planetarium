@@ -31,7 +31,7 @@ int main() {
     achi.id = "achi";
     achi.name = "阿智村";
     Scenario scenario;
-    scenario.steps = {{5.0, "achi", "2026-12-15 18:00", 600, "jewel", "テスト場面", 1, 1}};
+    scenario.steps = {{5.0, "achi", "2026-12-15 18:00", 600, "jewel", "テスト場面", 1, 1, 1}};
     AppState app{
         nullptr,
         SimClock(9.0, {1, 10, 60, 600, 3600, 86400}, 1.0),
@@ -104,27 +104,43 @@ int main() {
 
     // 表示
     press(app, GLFW_KEY_K);
-    check("K toggles constellation lines", app.overlays.constellations);
+    check("K (1st) -> constellation lines", app.overlays.constellations && !app.overlays.constellationNames);
+    press(app, GLFW_KEY_K);
+    check("K (2nd) -> lines + names", app.overlays.constellations && app.overlays.constellationNames);
+    press(app, GLFW_KEY_K);
+    check("K (3rd) -> off", !app.overlays.constellations && !app.overlays.constellationNames);
+    press(app, GLFW_KEY_K);
+    press(app, GLFW_KEY_K);
     press(app, GLFW_KEY_J);
-    check("J toggles names", app.overlays.labels);
+    check("J toggles star / planet names only", app.overlays.labels && app.overlays.constellationNames);
+    press(app, GLFW_KEY_J);
+    check("J again -> star names off, constellation names kept", !app.overlays.labels && app.overlays.constellationNames);
+    press(app, GLFW_KEY_J);
     press(app, GLFW_KEY_C);
     check("C toggles compass", app.overlays.compass);
     press(app, GLFW_KEY_G);
     check("G toggles grid", app.overlays.grid);
     press(app, GLFW_KEY_I);
     check("I toggles info", app.overlays.info);
+    press(app, GLFW_KEY_X);
+    check("X toggles test pattern", app.overlays.testPattern);
+    press(app, GLFW_KEY_X);
+    press(app, GLFW_KEY_F12);
+    check("F12 toggles credits", app.overlays.credits && !app.overlays.testPattern);
+    press(app, GLFW_KEY_F12);
     press(app, GLFW_KEY_V);
     check("V -> perspective south", !app.view.fisheye && app.view.centerAltDeg == 30.0 && app.view.fovDeg == 90.0);
     press(app, GLFW_KEY_V);
     check("V -> fisheye zenith", app.view.fisheye && app.view.centerAltDeg == 90.0 && app.view.fovDeg == 180.0);
 
     // シナリオ
-    app.overlays.constellations = app.overlays.labels = false;
+    app.overlays.constellations = app.overlays.constellationNames = app.overlays.labels = false;
     press(app, GLFW_KEY_P);
     check("P starts scenario and applies step", app.scenario->playing() && app.location == 1 &&
                                                     allModes()[app.mode].id == std::string("jewel") &&
                                                     localTime(app) == "2026-12-15 18:00" &&
-                                                    app.clock.speed() == 600.0 && app.overlays.constellations,
+                                                    app.clock.speed() == 600.0 && app.overlays.constellations &&
+                                                    app.overlays.constellationNames && app.overlays.labels,
           localTime(app));
     check("scenario message is shown", app.toast == "テスト場面", app.toast);
     press(app, GLFW_KEY_P);

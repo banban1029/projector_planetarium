@@ -40,6 +40,11 @@ class Result:
         self.status = 'FAIL'
         self.lines.append(f'**FAIL** {msg}')
 
+    def warn(self, msg):
+        if self.status == 'PASS':
+            self.status = 'WARN'
+        self.lines.append(f'**WARN** {msg}')
+
     def skip(self, msg):
         self.status = 'SKIP'
         self.lines.append(msg)
@@ -99,15 +104,22 @@ def check_build(r):
 def check_unit(r):
     p = run(['ctest', '--preset', 'mingw-debug', '--output-on-failure'])
     summary = [l for l in p.stdout.splitlines() if 'tests passed' in l]
-    r.info(summary[0] if summary else '(ctest の結果が読めない)')
+    r.info('ctest: ' + (summary[0] if summary else '(結果が読めない)'))
+    # 1 本ずつ動かして、テストの失敗と、Windows に実行を止められた場合を見分ける
     for name in ('astro', 'clock', 'controls'):
-        out = run([ROOT / 'build' / 'debug' / f'{name}_test.exe']).stdout
-        ok, ng = out.count('[ OK ]'), out.count('[FAIL]')
+        try:
+            q = run([ROOT / 'build' / 'debug' / f'{name}_test.exe'])
+        except OSError as e:
+            if getattr(e, 'winerror', None) == 4551:  # アプリケーション制御ポリシー（スマート アプリ コントロール）
+                r.warn(f'{name}: Windows のアプリ制御（スマート アプリ コントロール）に実行を止められた。コードの失敗ではない。'
+                       'Windows セキュリティ → アプリとブラウザーのコントロール → スマート アプリ コントロール を確認する')
+                continue
+            raise
+        ok, ng = q.stdout.count('[ OK ]'), q.stdout.count('[FAIL]')
         r.info(f'- {name}: {ok} 項目合格、{ng} 項目失敗')
-        if ng:
-            r.info('```\n' + '\n'.join(l for l in out.splitlines() if '[FAIL]' in l) + '\n```')
-    if p.returncode != 0:
-        r.fail('ctest に失敗したテストがある')
+        if ng or q.returncode != 0:
+            r.fail(f'{name} に失敗した項目がある')
+            r.info('```\n' + '\n'.join(l for l in q.stdout.splitlines() if '[FAIL]' in l) + '\n```')
 
 
 # ---------------------------------------------------------------- キー操作（実際のウィンドウ）
@@ -150,11 +162,15 @@ KEY_STEPS = [
     ('F3', 0x72, False, '[toast] 季節: 夏'), ('T', 0x54, False, '[toast] 季節の自動巡回 ON'),
     ('T', 0x54, False, '[toast] 季節の自動巡回 OFF'), ('Up', 0x26, True, '[toast] 時間 x10'),
     ('Down', 0x28, True, '[toast] 時間 x1'), ('Space', 0x20, False, '（一時停止）'), ('R', 0x52, False, '（逆再生）'),
-    ('N', 0x4E, False, '[time] now, x1'), ('K', 0x4B, False, '[toast] 星座線 ON'), ('J', 0x4A, False, '[toast] 名前 ON'),
+    ('N', 0x4E, False, '[time] now, x1'), ('K', 0x4B, False, '[toast] 星座: 線'),
+    ('K', 0x4B, False, '[toast] 星座: 線と名前'), ('K', 0x4B, False, '[toast] 星座: OFF'),
+    ('J', 0x4A, False, '[toast] 星・惑星の名前 ON'),
     ('C', 0x43, False, '[toast] 方位 ON'), ('G', 0x47, False, '[toast] グリッド ON'), ('I', 0x49, False, '[view] info ON'),
     ('V', 0x56, False, '[view] perspective (south)'), ('V', 0x56, False, '[view] fisheye (zenith)'),
     ('P', 0x50, False, '[scenario] start'), ('P', 0x50, False, '[scenario] stop'),
-    ('F11', 0x7A, False, '[view] fullscreen toggled'), ('F11', 0x7A, False, '[view] fullscreen toggled'),
+    ('X', 0x58, False, '[toast] テストパターン ON'), ('X', 0x58, False, '[toast] テストパターン OFF'),
+    ('F12', 0x7B, False, '[toast] クレジット ON'), ('F12', 0x7B, False, '[toast] クレジット OFF'),
+    ('F11', 0x7A, False, '[view] cursor hidden'), ('F11', 0x7A, False, '[view] cursor shown'),
     ('H', 0x48, False, '---- keys ----'), ('Esc', 0x1B, False, '[quit]'),
 ]
 
@@ -192,7 +208,12 @@ def check_keys(r):
             proc.wait(5)
         except subprocess.TimeoutExpired:
             r.fail('Esc で終了しない')
+        startup = read()
+        for expect, meaning in (('[power] display sleep is prevented', '起動時にスリープを止めている'),):
+            if expect not in startup:
+                r.fail(f'起動ログに `{expect}` が無い（{meaning}）')
         r.info(f'実際のウィンドウに {len(KEY_STEPS)} 回キー入力を送った（Shift の組み合わせは unit の controls で確認）')
+        r.info('全画面にするとマウスカーソルを隠し、戻すと表示することも確かめた（F11 の行）')
         r.info('| キー | ログに出るはずの行 | 結果 |\n|---|---|---|\n' + '\n'.join(rows))
     finally:
         if proc.poll() is None:
@@ -273,7 +294,8 @@ def check_motion(r):
 
 # ---------------------------------------------------------------- 描画速度
 BENCH = [('リアル（阿智村）', ['--mode', 'real']), ('リアル（大阪）', ['--mode', 'real', '--location', 'osaka']),
-         ('リアル + 星座線・名前・方位・画面表示', ['--mode', 'real', '--constellations', '--labels', '--compass', '--info']),
+         ('リアル + 星座線・名前・方位・画面表示',
+          ['--mode', 'real', '--constellations', '--constellation-names', '--labels', '--compass', '--info']),
          ('オーロラ', ['--mode', 'aurora']), ('星雲', ['--mode', 'nebula']), ('流星群', ['--mode', 'meteor']),
          ('宝石箱', ['--mode', 'jewel']), ('ワープ航行', ['--mode', 'warp']), ('天の川', ['--mode', 'milkyway']),
          ('水鏡', ['--mode', 'mirror'])]
@@ -386,7 +408,8 @@ core.quitStellarium();
 
 # ---------------------------------------------------------------- 目視確認用の画像
 SCENES = [
-    ('constellations', ['--location', 'achi', '--time', '2026-12-15 22:00', '--constellations', '--labels', '--compass', '--info'],
+    ('constellations', ['--location', 'achi', '--time', '2026-12-15 22:00', '--constellations', '--constellation-names',
+                        '--labels', '--compass', '--info'],
      '北が上・東が左。オリオン座・シリウスが南東（左下）。名前が重なっていない。左下に日時'),
     ('osaka', ['--location', 'osaka', '--time', '2026-12-15 22:00', '--compass'],
      '大阪: 空がオレンジ色に明るく、縁に街並み（窓明かり）、星が少ない、天の川なし'),
@@ -398,6 +421,10 @@ SCENES = [
      '満月: ふたご座の月が丸く光り、空が青白く明るく、星が減る'),
     ('perspective', ['PERSPECTIVE', '--location', 'achi', '--time', '2026-12-15 22:00', '--grid', '--compass'],
      '透視（南向き）: 下に山並みと「南」、左にオリオン座とシリウス、グリッドは山の手前で止まる'),
+    ('test_pattern', ['--test-pattern'],
+     'テストパターン: 下端に灰色 17 段、上端に暗い 9 段、中央と四隅に市松模様、格子、同心円と赤い北の線'),
+    ('credits', ['--location', 'achi', '--time', '2026-12-15 22:00', '--credits'],
+     'クレジット: 暗くした星空の上に、HYG（CC BY-SA 4.0）・d3-celestial・Astronomy Engine・stb の出典'),
 ]
 MODES = [('aurora', 0, '北の空に緑のカーテン'), ('nebula', 0, '星と一緒に動く色の雲'),
          ('meteor', 2.0, '流れ星（細い線）'), ('constellation', 0, '金色の星座線と星座名'),
@@ -430,6 +457,16 @@ def check_screenshots(r):
         mode_files.append(path)
         mode_notes.append(f'{len(mode_notes) + 1}. `{mode}` — {note}')
     r.images.append(('sheet_scenes.png', scene_files, 3, '左上から順に:\n' + '\n'.join(notes)))
+    # 操作パネル（2 つ目のウィンドウ）
+    path = shots / 'operator.png'
+    app(['--location', 'achi', '--time', '2026-12-15 22:00', '--operator', '--constellations', '--compass', '--info',
+         '--screenshot', path])
+    panel = shots / 'operator_operator.png'
+    if panel.exists():
+        r.images.append(('operator_panel.png', [panel], 1,
+                         '操作パネル: 上に出力のプレビュー（星空・星座線・方位）、下に日時・観測地・モード・表示の状態・キー一覧'))
+    else:
+        r.fail('操作パネルの画像が作れない')
     r.images.append(('sheet_modes.png', mode_files, 3, '左上から順に:\n' + '\n'.join(mode_notes)))
     r.info(f'{len(scene_files) + len(mode_files)} 枚を `build/verify/screenshots/` に保存（1 枚ずつ見るとき用）')
 
@@ -483,7 +520,8 @@ def main():
 
     lines = ['# 検証レポート', '', f'実行: {time.strftime("%Y-%m-%d %H:%M:%S")}　`python tests/verify/verify.py {" ".join(sys.argv[1:])}`', '',
              '| 検証 | 結果 |', '|---|---|']
-    lines += [f'| {r.title} | {"✅" if r.status == "PASS" else "❌" if r.status == "FAIL" else "⏭"} {r.status} |' for r in results]
+    icons = {'PASS': '✅', 'FAIL': '❌', 'WARN': '⚠️', 'SKIP': '⏭'}
+    lines += [f'| {r.title} | {icons[r.status]} {r.status} |' for r in results]
     for r in results:
         lines += ['', f'## {r.title}: {r.status}', ''] + r.lines
     if sheets:
@@ -498,7 +536,9 @@ def main():
     print(f'report: {OUT / "report.md"}')
     for file, _ in sheets:
         print(f'image:  {OUT / file}')
-    print('RESULT:', 'FAILED (' + ', '.join(r.name for r in failed) + ')' if failed else 'PASSED')
+    warned = [r.name for r in results if r.status == 'WARN']
+    print('RESULT:', 'FAILED (' + ', '.join(r.name for r in failed) + ')' if failed else
+          'PASSED' + (f' with warnings ({", ".join(warned)})' if warned else ''))
     return 1 if failed else 0
 
 

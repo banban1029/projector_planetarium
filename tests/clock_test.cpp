@@ -84,7 +84,7 @@ int main() {
     {
         Scenario sc;
         sc.loop = false;
-        sc.steps = {{5.0, "achi", "", -1, "", "A", -1, -1}, {3.0, "", "", 600, "", "B", -1, -1}};
+        sc.steps = {{5.0, "achi", "", -1, "", "A", -1, -1, -1}, {3.0, "", "", 600, "", "B", -1, -1, -1}};
         ScenarioPlayer p(sc);
         const ScenarioStep* st = p.start();
         check("scenario starts at first step", st && st->message == "A" && p.playing());
