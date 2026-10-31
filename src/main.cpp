@@ -14,16 +14,20 @@
 #include <algorithm>
 #include <cstdio>
 #include <exception>
+#include <filesystem>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include "astro.hpp"
+#include "audio.hpp"
 #include "bodies.hpp"
 #include "config.hpp"
 #include "constellations.hpp"
 #include "controls.hpp"
 #include "effects.hpp"
+#include "guide.hpp"
 #include "labels.hpp"
 #include "modes.hpp"
 #include "operator_window.hpp"
@@ -36,16 +40,19 @@ namespace {
 // コマンドライン: planetarium [config.yaml] [--time "YYYY-MM-DD HH:MM"] [--mode id] [--location id]
 //   [--grid] [--compass] [--constellations] [--constellation-names] [--labels] [--info] [--play] [--operator]
 //   [--test-pattern] [--credits]
+//   [--scenario shows/xxx.yaml]（上映の台本を読む）[--seek 秒]（台本をその時点まで進めてから始める。確認用）
+//   [--dump-narration]（台本の読み上げ文を表示して終了。scripts/make_show_audio.ps1 が使う）
 //   [--screenshot out.png|out.ppm [--wait 秒]]（描いて画像を保存し終了。検証・資料用）
 //   [--record 名前 --count N --interval 秒]（連続撮影: 名前_000.png ...。動きの確認用）
 //   [--benchmark 秒]（垂直同期を切って描画速度を測り終了）
 //   [--dump-positions]（主な天体の高度・方位を表示して終了。Stellarium との比較用）
 struct Options {
     std::string configPath;
-    std::string time, mode, location, screenshot, record;
-    double wait = 0.0, interval = 0.5, benchmark = 0.0;
+    std::string time, mode, location, screenshot, record, scenario;
+    double wait = 0.0, interval = 0.5, benchmark = 0.0, seek = 0.0;
     int count = 8;
-    bool dumpPositions = false;
+    bool dumpPositions = false, dumpNarration = false;
+    std::string dumpNames, root;
     bool grid = false, compass = false, constellations = false, constellationNames = false, labels = false;
     bool info = false, play = false, operatorWindow = false, testPattern = false, credits = false;
 };
@@ -53,6 +60,7 @@ struct Options {
 Options parseArgs(int argc, char** argv, const std::string& root) {
     Options o;
     o.configPath = root + "/config/projector.yaml";
+    o.root = root;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         const bool hasValue = i + 1 < argc;
@@ -66,6 +74,8 @@ Options parseArgs(int argc, char** argv, const std::string& root) {
         else if (a == "--interval" && hasValue) o.interval = std::stod(argv[++i]);
         else if (a == "--benchmark" && hasValue) o.benchmark = std::stod(argv[++i]);
         else if (a == "--dump-positions") o.dumpPositions = true;
+        else if (a == "--dump-narration") o.dumpNarration = true;
+        else if (a == "--dump-names" && hasValue) o.dumpNames = argv[++i];
         else if (a == "--grid") o.grid = true;
         else if (a == "--compass") o.compass = true;
         else if (a == "--constellations") o.constellations = true;
@@ -74,6 +84,8 @@ Options parseArgs(int argc, char** argv, const std::string& root) {
         else if (a == "--info") o.info = true;
         else if (a == "--play") o.play = true;
         else if (a == "--operator") o.operatorWindow = true;
+        else if (a == "--scenario" && hasValue) o.scenario = argv[++i];
+        else if (a == "--seek" && hasValue) o.seek = std::stod(argv[++i]);
         else if (a == "--test-pattern") o.testPattern = true;
         else if (a == "--credits") o.credits = true;
         else o.configPath = a;
@@ -128,6 +140,58 @@ SkyState computeSky(const SimClock& clock, const ObserverConfig& obs, const std:
     return sky;
 }
 
+// 上映の案内（季節の目印の線・指す円）を線に足し、その名前を labels に足す
+void addGuide(const SkyGuide& guide, const AppState& app, const std::vector<BodyInfo>& bodies, double now,
+              std::vector<LineVertex>& lines, std::vector<LabelRequest>& labels) {
+    const double t = now - app.show.stepTime;
+    const float fadeIn = static_cast<float>(std::clamp(t / 0.8, 0.0, 1.0));
+    const float gold[4] = {1.0f, 0.82f, 0.45f, fadeIn}, white[4] = {0.9f, 0.96f, 1.0f, fadeIn};
+    for (const auto& id : app.show.asterisms) {
+        if (const auto* a = guide.asterism(id)) {
+            guide.appendAsterism(lines, *a, t / 2.0, 0.9f * fadeIn);  // 2 秒かけて線が順に伸びる
+            labels.push_back({TextRenderer::SkyJ2000, a->center, a->nameJa, 20.0f, {gold[0], gold[1], gold[2], gold[3]},
+                              -1.0f, false});
+        }
+    }
+    for (const auto& name : app.show.point) {
+        astro::Vec3 dir;
+        std::string display;
+        if (!guide.find(name, bodies, dir, display)) continue;
+        // 大きな円から縮んで止まり、ゆっくり明滅する
+        const double radius = 2.2 + 4.0 * std::exp(-t * 3.0);
+        const float alpha = fadeIn * static_cast<float>(0.75 + 0.25 * std::sin(now * 3.0));
+        guide.appendPointer(lines, dir, radius, alpha);
+        labels.push_back({TextRenderer::SkyJ2000, dir, display, 16.0f, {white[0], white[1], white[2], white[3]},
+                          -0.5f, true});
+    }
+}
+
+// 台本の名前（目印の id・星や惑星の名前）がすべて引けるかを確かめ、引けないものを表示する
+int checkShowNames(const Scenario& scenario, const SkyGuide& guide, const std::vector<BodyInfo>& bodies) {
+    int unknown = 0;
+    for (const auto& st : scenario.steps) {
+        for (const auto& id : st.asterisms) {
+            if (!guide.asterism(id)) {
+                std::fprintf(stderr, "[show] unknown asterism: %s\n", id.c_str());
+                ++unknown;
+            }
+        }
+        for (const auto& name : st.point) {
+            astro::Vec3 dir;
+            std::string display;
+            if (!guide.find(name, bodies, dir, display)) {
+                std::fprintf(stderr, "[show] unknown name: %s\n", name.c_str());
+                ++unknown;
+            }
+        }
+    }
+    return unknown;
+}
+
+std::string narrationOf(const Scenario& scenario, size_t index) {
+    return index < scenario.steps.size() ? narrationText(scenario.steps[index]) : std::string();
+}
+
 int landscapeId(const std::string& name) { return name == "mountains" ? 1 : name == "city" ? 2 : 0; }
 
 ViewSettings viewFromConfig(const Config& cfg) {
@@ -175,10 +239,11 @@ size_t findLocation(const Config& cfg, const std::string& id) {
 // 天球上の名前・方位（重ならないように配置）と、画面表示・通知を文字として積む
 void addTexts(TextRenderer& text, const AppState& app, const ModeStyle& style, const ConstellationData& cons,
               const std::vector<SkyLabel>& starNames, const std::vector<BodyInfo>& bodies,
-              const Projection& projection, const astro::Mat3& j2000ToHorizon, int fbW, int fbH, double now) {
+              const Projection& projection, const astro::Mat3& j2000ToHorizon, int fbW, int fbH, double now,
+              std::vector<LabelRequest> labels) {
     const float px = static_cast<float>(std::min(fbW, fbH)) / 800.0f;
     const auto& o = app.overlays;
-    std::vector<LabelRequest> labels;
+    for (auto& l : labels) l.sizePx *= px;  // 案内の名前（呼び出し側で 800px 基準の大きさを入れる）
     auto request = [&](TextRenderer::Anchor anchor, const astro::Vec3& dir, const std::string& s, float size,
                        const float c[4], float priority, bool beside) {
         labels.push_back({anchor, dir, s, size * px, {c[0], c[1], c[2], c[3]}, priority, beside});
@@ -231,6 +296,26 @@ void addTexts(TextRenderer& text, const AppState& app, const ModeStyle& style, c
         text.add(TextRenderer::Screen, bottomRight, app.toast, 18.0f * px, c, TextRenderer::Right, -margin,
                  margin + 8.0f * px, TextRenderer::Overlay);
     }
+    // 字幕: 画面下の中央。読みやすいよう黒い影を付ける。場面の始めに 0.6 秒でフェードイン
+    if (!app.show.subtitle.empty()) {
+        std::vector<std::string> lines;
+        std::string rest = app.show.subtitle;
+        for (auto p = rest.find('\n'); p != std::string::npos; p = rest.find('\n')) {
+            lines.push_back(rest.substr(0, p));
+            rest = rest.substr(p + 1);
+        }
+        lines.push_back(rest);
+        const float a = static_cast<float>(std::clamp((now - app.show.stepTime) / 0.6, 0.0, 1.0));
+        const float shadow[4] = {0.0f, 0.0f, 0.0f, 0.85f * a}, white[4] = {0.95f, 0.96f, 1.0f, a};
+        const astro::Vec3 bottom{0.0, -1.0, 0.0};
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const float y = (34.0f + (lines.size() - 1 - i) * 36.0f) * px;
+            for (int k = 0; k < 2; ++k) {
+                text.add(TextRenderer::Screen, bottom, lines[i], 25.0f * px, k == 0 ? shadow : white, TextRenderer::Center,
+                         k == 0 ? 2.0f * px : 0.0f, k == 0 ? y - 2.0f * px : y, TextRenderer::Overlay);
+            }
+        }
+    }
     if (o.credits) {
         // データ・ライブラリの出典（CC BY-SA などの表示義務）。LICENSE と README にも同じ内容を書いている
         const char* lines[] = {
@@ -281,6 +366,22 @@ int dumpPositions(const Config& cfg, const Options& opts) {
         astro::altAz(m * bodies[i].dirJ2000, alt, az);
         std::printf("%s %.4f %.4f\n", english[i], alt, az);
     }
+    // --dump-names: 名前で指定した星・惑星（上映の字幕が正しいかを確かめる）
+    if (!opts.dumpNames.empty()) {
+        const SkyGuide guide(opts.root + "/data");
+        std::stringstream list(opts.dumpNames);
+        std::string name;
+        while (std::getline(list, name, ',')) {
+            astro::Vec3 dir;
+            std::string display;
+            if (!guide.find(name, bodies, dir, display)) {
+                std::printf("%s (unknown)\n", name.c_str());
+                continue;
+            }
+            astro::altAz(m * dir, alt, az);
+            std::printf("%s %.4f %.4f\n", name.c_str(), alt, az);
+        }
+    }
     return 0;
 }
 
@@ -290,11 +391,6 @@ int main(int argc, char** argv) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
     const std::string root = resourceRoot();
-#ifdef _WIN32
-    // 上映中に画面が消えたりスリープしたりしないようにする（終了すると元に戻る）
-    SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
-    std::printf("[power] display sleep is prevented while running\n");
-#endif
     const Options opts = parseArgs(argc, argv, root);
 
     Config cfg;
@@ -305,10 +401,38 @@ int main(int argc, char** argv) {
         return 1;
     }
     if (!opts.time.empty()) cfg.time.start = opts.time;
+    if (!opts.scenario.empty()) {
+        try {
+            cfg.scenario = loadScenario(opts.scenario);
+            double total = 0.0;
+            for (const auto& st : cfg.scenario.steps) total += st.duration_sec;
+            if (opts.dumpNarration) {
+                // タブ区切り: 先頭の # 行が設定、続いて「場面番号 秒数 読み上げ文」
+                const auto& a = cfg.scenario.audio;
+                std::printf("#title\t%s\n#dir\t%s\n#voice\t%s\n#rate\t%d\n#bgm\t%s\n#total\t%.0f\n",
+                            cfg.scenario.title.c_str(), a.narrationDir.c_str(), a.voice.c_str(), a.rate, a.bgm.c_str(),
+                            total);
+                for (size_t i = 0; i < cfg.scenario.steps.size(); ++i) {
+                    const auto& st = cfg.scenario.steps[i];
+                    std::printf("%02zu\t%.1f\t%s\n", i + 1, st.duration_sec, narrationText(st).c_str());
+                }
+                return 0;
+            }
+            std::printf("[show] %s (%zu steps, %.0f s)\n", opts.scenario.c_str(), cfg.scenario.steps.size(), total);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "%s\n", e.what());
+            return 1;
+        }
+    }
     if (!opts.screenshot.empty() || !opts.record.empty()) cfg.render.dither = false;  // 画像が圧縮しにくくなるので切る
     if (opts.benchmark > 0.0) cfg.projector.vsync = false;
     if (opts.dumpPositions) return dumpPositions(cfg, opts);
 
+#ifdef _WIN32
+    // 上映中に画面が消えたりスリープしたりしないようにする（終了すると元に戻る）
+    SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
+    std::printf("[power] display sleep is prevented while running\n");
+#endif
     if (!glfwInit()) {
         std::fprintf(stderr, "glfwInit failed\n");
         return 1;
@@ -366,12 +490,17 @@ int main(int argc, char** argv) {
     std::vector<StarVertex> stars;
     ConstellationData constellations;
     std::vector<SkyLabel> starNames;
+    std::unique_ptr<SkyGuide> guide;
     std::unique_ptr<SkyRenderer> renderer;
     try {
         const std::string data = root + "/data";
         stars = loadStarCatalog(data + "/stars.csv");
         constellations = loadConstellations(data);
         starNames = loadStarNames(data);
+        guide = std::make_unique<SkyGuide>(data);
+        if (checkShowNames(cfg.scenario, *guide, computeBodies(app.clock.julianDate(), obs)) > 0) {
+            std::fprintf(stderr, "[show] some names in the scenario are unknown (see above)\n");
+        }
         std::printf("stars: %zu, constellation lines: %zu, names: %zu + %zu\n", stars.size(),
                     constellations.segments.size(), constellations.names.size(), starNames.size());
         renderer = std::make_unique<SkyRenderer>(root, stars, constellations, cfg.render);
@@ -412,7 +541,28 @@ int main(int argc, char** argv) {
     printHelp();
     if (opts.play) {
         if (const ScenarioStep* step = app.scenario->start()) applyScenarioStep(app, *step);
+        // --seek: 描かずに台本と時計だけ進める（上映の途中の場面を確かめるため）
+        for (double t = 0.0; t < opts.seek; t += 0.05) {
+            app.clock.update(0.05);
+            if (const ScenarioStep* step = app.scenario->update(0.05)) applyScenarioStep(app, *step);
+        }
+        if (opts.seek > 0.0) {
+            app.show.stepTime = glfwGetTime() - 10.0;  // 線・円・字幕のアニメーションは終わった状態で見せる
+            app.show.eyeAdaptStart = -1.0;
+            app.transition = false;
+            std::printf("[show] seek %.1f s -> step %zu\n", opts.seek, app.scenario->index() + 1);
+        }
     }
+
+    // 上映の音（台本に audio があるときだけ）。画像を撮るとき・速度を測るときは鳴らさない
+    std::unique_ptr<AudioPlayer> audio;
+    const auto& showAudio = cfg.scenario.audio;
+    if (!showAudio.narrationDir.empty() || !showAudio.bgm.empty()) {
+        audio = std::make_unique<AudioPlayer>();
+        if (!opts.screenshot.empty() || !opts.record.empty() || opts.benchmark > 0.0) app.audioMuted = true;
+    }
+    auto showFile = [&](const std::string& relative) { return root + "/" + relative; };
+    bool wasPlaying = false;
 
     MeteorShower meteors;
     std::vector<LineVertex> effectLines;
@@ -433,10 +583,49 @@ int main(int argc, char** argv) {
             showToast(app, "季節: " + app.seasons.currentName());
         }
         if (const ScenarioStep* step = app.scenario->update(dt)) applyScenarioStep(app, *step);
+        if (audio) {
+            // 再生を始めたら BGM、止めたら音を止める。場面が変わったらその場面のナレーション
+            const bool playing = app.scenario->playing();
+            if (playing && !wasPlaying && !showAudio.bgm.empty()) {
+                if (std::filesystem::exists(showFile(showAudio.bgm))) {
+                    audio->playBgm(showFile(showAudio.bgm), static_cast<float>(showAudio.bgmVolume));
+                } else {
+                    std::fprintf(stderr, "[audio] %s not found (run scripts/make_show_audio.ps1)\n", showAudio.bgm.c_str());
+                }
+            }
+            if (!playing && wasPlaying) {
+                audio->stopNarration();
+                audio->stopBgm();
+            }
+            wasPlaying = playing;
+            if (app.show.stepChanged && playing && !showAudio.narrationDir.empty()) {
+                char name[32];
+                std::snprintf(name, sizeof(name), "/step_%02zu.wav", app.show.stepIndex + 1);
+                const std::string path = showFile(showAudio.narrationDir) + name;
+                if (std::filesystem::exists(path)) {
+                    audio->playNarration(path);
+                } else if (!narrationOf(app.scenario->scenario(), app.show.stepIndex).empty()) {
+                    std::fprintf(stderr, "[audio] %s not found (run scripts/make_show_audio.ps1)\n", path.c_str());
+                }
+            }
+            app.show.stepChanged = false;
+            audio->setMuted(app.audioMuted);
+            audio->update(dt);
+        }
 
         const ObserverConfig& here = app.locations[app.location];
         const auto bodies = computeBodies(app.clock.julianDate(), here);
-        const SkyState sky = computeSky(app.clock, here, bodies);
+        SkyState sky = computeSky(app.clock, here, bodies);
+        // 目が暗さに慣れる演出: 見える星を 4 等級まで → その場所の限界まで、だんだん増やす
+        if (app.show.eyeAdaptStart >= 0.0) {
+            const double t = (now - app.show.eyeAdaptStart) / app.show.eyeAdaptSec;
+            if (t < 1.0) {
+                const double k = t <= 0.0 ? 0.0 : t * t * (3.0 - 2.0 * t);
+                sky.eyeLimit = 4.0 + (here.limiting_magnitude - 4.0) * k;
+            } else {
+                app.show.eyeAdaptStart = -1.0;
+            }
+        }
         app.sunAltDeg = sky.sunAltDeg;
         const ModeStyle& style = allModes()[app.mode].style;
 
@@ -448,16 +637,22 @@ int main(int argc, char** argv) {
         // 演出の線: 流れ星（流星群モードはふたご座流星群の放射点から）とワープの光跡
         effectLines.clear();
         astro::Vec3 radiant{0, 0, 0};
-        if (style.meteorRate > 1.0) {
+        double meteorRate = app.show.meteorRate >= 0.0 ? app.show.meteorRate : style.meteorRate;
+        if (app.show.hasRadiant) {
+            radiant = sky.j2000ToHorizon * astro::equatorialVector(app.show.radiantRa, app.show.radiantDec);
+        } else if (style.meteorRate > 1.0) {
             radiant = sky.j2000ToHorizon * astro::equatorialVector(112.0, 33.0);
-            if (radiant.z < 0.0) radiant = {0, 0, 0};
         }
-        meteors.update(dt, style.meteorRate, radiant);
+        if (radiant.z < 0.0) radiant = {0, 0, 0};
+        meteors.update(dt, meteorRate, radiant);
         meteors.appendLines(effectLines);
         if (style.warp) {
             appendWarpStreaks(effectLines, stars, sky.j2000ToHorizon, viewForward(app.view),
                               app.view.fovDeg * 0.5 * astro::kDeg, now);
         }
+
+        std::vector<LabelRequest> guideLabels;
+        addGuide(*guide, app, bodies, now, effectLines, guideLabels);
 
         int fbW, fbH;
         glfwGetFramebufferSize(window, &fbW, &fbH);
@@ -465,9 +660,10 @@ int main(int argc, char** argv) {
         int landscape = landscapeId(here.landscape);
         if (style.mirror) applyMirror(drawView, landscape);
         addTexts(text, app, style, constellations, starNames, bodies,
-                 makeProjection(drawView, fbW, fbH, landscape), sky.j2000ToHorizon, fbW, fbH, now);
+                 makeProjection(drawView, fbW, fbH, landscape), sky.j2000ToHorizon, fbW, fbH, now,
+                 std::move(guideLabels));
         if (app.transition) {
-            renderer->startTransition(static_cast<float>(now), 1.0f);
+            renderer->startTransition(static_cast<float>(now), app.transitionSec);
             app.transition = false;
         }
         renderer->render({fbW, fbH, app.view, sky, style, static_cast<float>(now), app.overlays,
@@ -519,6 +715,7 @@ int main(int argc, char** argv) {
         glfwPollEvents();
     }
 
+    audio.reset();
     operatorWindow.reset();
     renderer.reset();  // GL コンテキストが生きているうちに解放する
 #ifdef _WIN32

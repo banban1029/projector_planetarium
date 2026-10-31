@@ -30,6 +30,21 @@ struct AppState {
     double toastTime = -100.0;
     // 場面が切り替わったのでフェードする（メインループで処理して false に戻す）
     bool transition = false;
+    float transitionSec = 1.0f;
+    bool audioMuted = false;
+
+    // 上映（シナリオ）の演出。場面ごとに applyScenarioStep() が書き換える
+    struct Show {
+        std::string subtitle;
+        std::vector<std::string> asterisms, point;
+        double stepTime = -100.0;      // 場面が始まった実時間（字幕・線のアニメーション用）
+        size_t stepIndex = 0;
+        bool stepChanged = false;      // 場面が変わった（メインループでナレーションを流して false に戻す）
+        double eyeAdaptStart = -1.0, eyeAdaptSec = 0.0;
+        double meteorRate = -1.0;      // 負ならモードの既定
+        bool hasRadiant = false;
+        double radiantRa = 0.0, radiantDec = 0.0;
+    } show{};
 
     // F11 で全画面から戻るときのウィンドウ位置・サイズ
     int windowedX = 100, windowedY = 100, windowedW = 1280, windowedH = 800;
@@ -46,6 +61,8 @@ void printHelp();
 void showToast(AppState& app, const std::string& text);
 // シナリオの場面を反映する
 void applyScenarioStep(AppState& app, const ScenarioStep& step);
+// 上映の演出（字幕・目印・円・流れ星の指定）を消す
+void clearShow(AppState& app);
 // ウィンドウタイトル用の 1 行
 std::string statusLine(const AppState& app);
 // 画面表示（I キー）用の 2 行

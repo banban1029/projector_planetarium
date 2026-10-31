@@ -86,6 +86,7 @@ void toggleScenario(AppState& app) {
     }
     if (app.scenario->playing()) {
         app.scenario->stop();
+        clearShow(app);
         std::printf("[scenario] stop\n");
         showToast(app, "シナリオ停止");
     } else if (const ScenarioStep* step = app.scenario->start()) {
@@ -182,6 +183,10 @@ void handleKey(AppState& app, int key, int action, int mods) {
             o.testPattern = !o.testPattern;
             showToast(app, std::string("テストパターン ") + onOff(o.testPattern));
             break;
+        case GLFW_KEY_B:
+            app.audioMuted = !app.audioMuted;
+            showToast(app, std::string("音 ") + onOff(!app.audioMuted));
+            break;
         case GLFW_KEY_F12:
             o.credits = !o.credits;
             showToast(app, std::string("クレジット ") + onOff(o.credits));
@@ -229,6 +234,7 @@ void printHelp() {
         "  V           fisheye / perspective\n"
         "  X           test pattern (projector adjustment)\n"
         "  F12         credits\n"
+        "  B           sound on/off (show narration and music)\n"
         "  F11         fullscreen\n"
         "  H           help, Esc quit\n");
 }
@@ -240,20 +246,55 @@ void showToast(AppState& app, const std::string& text) {
 }
 
 void applyScenarioStep(AppState& app, const ScenarioStep& s) {
-    if (!s.location.empty()) {
+    const Scenario& sc = app.scenario->scenario();
+    // location: main → 上映の本編の観測地
+    const std::string location = s.location == "main" ? sc.location : s.location;
+    if (!location.empty()) {
         for (size_t i = 0; i < app.locations.size(); ++i) {
-            if (app.locations[i].id == s.location) app.location = i;
+            if (app.locations[i].id == location) app.location = i;
         }
     }
-    if (!s.time.empty()) app.clock.setLocalString(s.time);
+    // time: start → 上映の日時、"start+5:00" → その 5 時間後
+    if (s.time.rfind("start", 0) == 0 && !sc.date.empty()) {
+        app.clock.setLocalString(sc.date);
+        int h = 0, m = 0;
+        if (std::sscanf(s.time.c_str(), "start+%d:%d", &h, &m) >= 1) app.clock.shift(h * 3600.0 + m * 60.0);
+    } else if (!s.time.empty()) {
+        app.clock.setLocalString(s.time);
+    }
     if (s.speed > 0) app.clock.setSpeed(s.speed);
     if (!s.mode.empty()) app.mode = findMode(s.mode);
     if (s.constellations >= 0) app.overlays.constellations = s.constellations != 0;
     if (s.constellationNames >= 0) app.overlays.constellationNames = s.constellationNames != 0;
     if (s.labels >= 0) app.overlays.labels = s.labels != 0;
+    if (s.credits >= 0) app.overlays.credits = s.credits != 0;
+    auto& show = app.show;
+    show.subtitle = s.subtitle;
+    show.asterisms = s.asterisms;
+    show.point = s.point;
+    show.stepTime = glfwGetTime();
+    show.stepIndex = app.scenario->index();
+    show.stepChanged = true;
+    if (s.eyeAdaptSec > 0) {
+        show.eyeAdaptStart = show.stepTime;
+        show.eyeAdaptSec = s.eyeAdaptSec;
+    }
+    if (s.meteorRate >= 0) show.meteorRate = s.meteorRate;
+    if (s.meteorRadiant.size() == 2) {
+        show.hasRadiant = true;
+        show.radiantRa = s.meteorRadiant[0];
+        show.radiantDec = s.meteorRadiant[1];
+    }
+    app.transitionSec = s.fadeSec > 0 ? static_cast<float>(s.fadeSec) : 1.0f;
     app.transition = true;
     std::printf("[scenario] step %zu/%zu %s\n", app.scenario->index() + 1, app.scenario->size(), s.message.c_str());
     if (!s.message.empty()) showToast(app, s.message);
+}
+
+void clearShow(AppState& app) {
+    app.show = AppState::Show{};
+    app.overlays.credits = false;
+    app.transitionSec = 1.0f;
 }
 
 std::string statusLine(const AppState& app) {
@@ -297,6 +338,11 @@ std::vector<std::string> operatorLines(const AppState& app) {
     if (app.scenario && app.scenario->playing()) {
         std::snprintf(buf, sizeof(buf), "シナリオ再生中: %zu / %zu 場面", app.scenario->index() + 1, app.scenario->size());
         lines.push_back(buf);
+        if (!app.show.subtitle.empty()) {
+            std::string sub = app.show.subtitle;
+            for (auto p = sub.find('\n'); p != std::string::npos; p = sub.find('\n')) sub.replace(p, 1, " ");
+            lines.push_back("字幕: " + sub);
+        }
     } else {
         lines.push_back("シナリオ: 停止中（P で再生）");
     }
@@ -305,6 +351,6 @@ std::vector<std::string> operatorLines(const AppState& app) {
     lines.push_back("0-8 モード   M 次のモード   L 観測地   S 次の季節   F1-F5 季節   T 季節の自動巡回");
     lines.push_back("↑↓ 時間倍率   Space 一時停止   R 逆再生   ←→ ±1時間   N 現在時刻");
     lines.push_back("K 星座   J 星の名前   C 方位   G グリッド   I 画面表示   V 投影   P シナリオ");
-    lines.push_back("X テストパターン   F12 クレジット   F11 全画面   Esc 終了");
+    lines.push_back("X テストパターン   F12 クレジット   B 音   F11 全画面   Esc 終了");
     return lines;
 }

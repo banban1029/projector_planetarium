@@ -18,6 +18,9 @@ target_include_directories(astronomy_engine PUBLIC third_party/astronomy)
 add_library(stb STATIC third_party/stb/stb_impl.c)
 target_include_directories(stb PUBLIC third_party/stb)
 
+add_library(miniaudio STATIC third_party/miniaudio/miniaudio_impl.c)
+target_include_directories(miniaudio PUBLIC third_party/miniaudio)
+
 if(MSVC)
     set(WARNINGS /W4 /utf-8)
 else()
@@ -39,10 +42,12 @@ target_compile_options(planetarium_core PRIVATE ${WARNINGS})
 
 add_executable(planetarium
     src/main.cpp
+    src/audio.cpp
     src/constellations.cpp
     src/controls.cpp
     src/effects.cpp
     src/gl_util.cpp
+    src/guide.cpp
     src/labels.cpp
     src/line_renderer.cpp
     src/modes.cpp
@@ -53,7 +58,7 @@ add_executable(planetarium
     src/star_catalog.cpp
     src/text_renderer.cpp
 )
-target_link_libraries(planetarium PRIVATE planetarium_core stb OpenGL::GL glfw GLEW::GLEW glm::glm)
+target_link_libraries(planetarium PRIVATE planetarium_core stb miniaudio OpenGL::GL glfw GLEW::GLEW glm::glm)
 target_compile_definitions(planetarium PRIVATE PLANETARIUM_ROOT="${CMAKE_SOURCE_DIR}")
 target_compile_options(planetarium PRIVATE ${WARNINGS})
 
