@@ -46,6 +46,7 @@ add_executable(planetarium
     src/labels.cpp
     src/line_renderer.cpp
     src/modes.cpp
+    src/operator_window.cpp
     src/paths.cpp
     src/projection.cpp
     src/sky_renderer.cpp
