@@ -1,0 +1,10 @@
+# 季節の目印（アステリズム）と案内線。このプロジェクトで作成。
+# lines: 星の英語名（data/stars.csv の proper 列）を - でつないだ折れ線。複数の折れ線は ; で区切る
+id,name_ja,lines
+summer_triangle,夏の大三角,Vega-Altair-Deneb-Vega
+autumn_square,ペガススの四辺形,Markab-Scheat-Alpheratz-Algenib-Markab
+cassiopeia_w,カシオペヤ座のW,Caph-Schedar-Cih-Ruchbah-Segin
+polaris_guide,北極星の見つけ方,Cih-Polaris
+winter_triangle,冬の大三角,Betelgeuse-Sirius-Procyon-Betelgeuse
+winter_diamond,冬のダイヤモンド,Sirius-Procyon-Pollux-Capella-Aldebaran-Rigel-Sirius
+big_dipper,北斗七星,Alkaid-Mizar-Alioth-Megrez-Phecda-Merak-Dubhe-Megrez
