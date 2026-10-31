@@ -23,6 +23,35 @@ vec3 projectHorizon(vec3 h) {
     return vec3((u_screen * p) * u_aspect, 1.0);
 }
 
+// ---- 地平線の景色（山並み・街並み）----
+// 方位ごとの「地面の高さ」[deg]。星・文字・線はこれより下では描かない。sky.frag はこれより下を地面で塗る
+uniform int u_landscape;  // 0 = なし, 1 = 山並み, 2 = 街並み
+
+float landscapeHash(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+
+float groundAltDeg(float azDeg) {
+    float a = radians(azDeg);
+    if (u_landscape == 1) {
+        // 周期関数の和なので方位 0° と 360° でつながる。高さ 0.8〜5°
+        float h = 2.4 + 1.3 * sin(2.0 * a + 1.3) + 0.9 * sin(5.0 * a + 0.4) + 0.5 * sin(11.0 * a + 2.1) +
+                  0.25 * sin(23.0 * a + 0.7) + 0.12 * sin(47.0 * a + 1.9);
+        return max(h, 0.8);
+    }
+    if (u_landscape == 2) {
+        // 幅 2.5° ごとの建物。ときどき高いビル
+        float i = floor(mod(azDeg, 360.0) / 2.5);
+        float r = landscapeHash(i);
+        return 0.3 + 2.2 * r * r + (landscapeHash(i + 91.0) > 0.93 ? 2.0 : 0.0);
+    }
+    return 0.0;
+}
+
+// 地平座標の方向 h が景色より上にあるか（余裕 marginDeg）
+bool aboveGround(vec3 h, float marginDeg) {
+    float alt = degrees(asin(clamp(h.z, -1.0, 1.0)));
+    return alt > groundAltDeg(degrees(atan(h.y, h.x))) + marginDeg;
+}
+
 // NDC -> 地平座標の方向。投影範囲外なら false
 bool unprojectNdc(vec2 ndc, out vec3 h) {
     vec2 p = inverse(u_screen) * (ndc / u_aspect);
