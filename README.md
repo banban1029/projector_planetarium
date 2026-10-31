@@ -7,7 +7,7 @@
 
 | やること | PowerShell | MSYS2 Bash |
 |---|---|---|
-| 星空を出す | `.\run.ps1` | `./run.sh` |
+| 今の星空を出す（リアルモード・現在時刻） | `.\run.ps1` | `./run.sh` |
 | 上映（解説つき、約 5 分半） | `.\show.ps1` | `./show.sh` |
 | 日時・場所を決めて出す | `.\run.ps1 --time "2026-11-02 22:00" --location achi` | `./run.sh --time "2026-11-02 22:00" --location achi` |
 | テストパターン（ピント・明るさ・向きの調整） | `.\run.ps1 --test-pattern` | `./run.sh --test-pattern` |
@@ -15,7 +15,20 @@
 | プロジェクタの動作確認 | `python tests/verify/projector.py` | `python tests/verify/projector.py` |
 | 全体の検証 | `python tests/verify/verify.py` | `python tests/verify/verify.py` |
 
-キー操作は `H` で一覧が出る（[§3](#3-キーボード操作)）。プロジェクタは Windows の `Win + P` で「拡張」にしておく。
+実行中に `N` で現在時刻・実時間（×1）に戻る（季節ジャンプや早送りのあとに）。キー操作は `H` で一覧が出る（[§3](#3-キーボード操作)）。プロジェクタは Windows の `Win + P` で「拡張」にしておく。
+
+本番（上映・投影）は Release ビルドが速い：`.\run.ps1 --release`（`show.ps1` は最初から Release）。
+Release が Windows のスマート アプリ コントロールに止められたときは、自動で Debug ビルドで起動する。
+
+PowerShell で「このシステムではスクリプトの実行が無効になっているため…読み込むことができません」と出るときは、
+PowerShell の実行ポリシーでスクリプトが止められている。次のように起動すれば動く（設定は変わらない）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\show.ps1
+powershell -ExecutionPolicy Bypass -File .\run.ps1 --release
+```
+
+毎回書くのが面倒なら、一度だけ `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` を実行すると、以後は `.\show.ps1` で動く。
 
 OpenGL で星空を描画し、プロジェクタ（Optoma ML1050ST+）で投影するプログラム。
 開発方針は [PLAN.md](PLAN.md)、設計と実装アルゴリズムは [docs/](docs/README.md) を参照。
@@ -301,6 +314,7 @@ font: C:/Windows/Fonts/BIZ-UDGothicR.ttc
 | `V` | 魚眼（天頂・全天）⇔ 透視（南向き・画角 90°）の切り替え |
 | `F11` | 全画面切り替え（ウィンドウが載っているモニタで全画面になる） |
 | `X` | テストパターン（プロジェクタの調整用。灰色の段階・暗部の段階・ピント・格子・方位） |
+| `[` / `]` | 白の最大値（`render.white_level`）を 0.02 ずつ下げる / 上げる。テストパターンの下端の右端の段が見分けられる値にし、決まったら config に書く |
 | `F12` | クレジット（データとライブラリの出典） |
 | `B` | 上映の音（ナレーション・BGM）ON/OFF |
 | `H` | キー一覧をターミナルに表示 |
